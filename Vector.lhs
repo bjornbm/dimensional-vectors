@@ -90,6 +90,11 @@ of empty vectors.
 > vTail :: Vec (HCons d ds) a -> Vec ds a
 > vTail (ListVec xs) = ListVec (tail xs)
 
+| Unwrap a singular vector.
+
+> --fromSing :: Vec (HCons d HNil) a -> Quantity d a
+> --fromSing (ListVec [x]) = Dimensional x
+
 
 Homogenity
 ==========
@@ -109,7 +114,8 @@ Dot product
 ===========
 
 > data MulD = MulD
-> instance Mul d1 d2 d3 => Apply MulD (d1, d2) d3 where apply _ _ = undefined
+> instance Mul d1 d2 d3 => Apply  MulD (d1, d2) d3 where apply _ _ = undefined
+> instance Mul d1 d2 d3 => Apply (MulD, d1) d2  d3 where apply _ _ = undefined
 
 This class allows calculating the dot product of two vectors assuming
 they have suitable elements.
@@ -154,6 +160,27 @@ Elementwise multiplication of vectors.
 > --   elemMul (ListVec v1) (ListVec v2) = ListVec (zipWith (P.*) v1 v2)
 > elemMul :: (HZipWith MulD ds1 ds2 ds3, Num a) => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
 > elemMul (ListVec v1) (ListVec v2) = ListVec (zipWith (P.*) v1 v2)
+
+Elementwise addition of vectors.
+
+> elemAdd :: Num a => Vec ds a -> Vec ds a -> Vec ds a
+> elemAdd (ListVec v1) (ListVec v2) = ListVec (zipWith (P.+) v1 v2)
+
+Scale a vector (multiply with a scalar).
+
+> {-
+> class ScaleVec d ds1 ds2 | d ds1 -> ds2 where
+>   scaleVec :: Num a => Quantity d a -> Vec ds1 a -> Vec ds2 a
+>   scaleVec (Dimensional x) (ListVec xs) = ListVec (map (x P.*) xs)
+> instance HMap (MulD, d) ds1 ds2 => ScaleVec d ds1 ds2
+> -}
+> scaleVec :: (HMap (MulD, d) ds1 ds2, Num a) => Quantity d a -> Vec ds1 a -> Vec ds2 a
+> scaleVec (Dimensional x) (ListVec xs) = ListVec (map (x P.*) xs)
+
+> data ScaleV
+> instance HMap (MulD, d) ds1 ds2 => Apply  ScaleV (d, ds1) ds2 where apply _ = undefined
+> instance HMap (MulD, d) ds1 ds2 => Apply (ScaleV, d) ds1  ds2 where apply _ = undefined
+
 
 
 Test values

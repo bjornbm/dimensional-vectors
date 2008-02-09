@@ -1,15 +1,13 @@
 > {-# OPTIONS_GHC -fglasgow-exts -fallow-undecidable-instances #-}
 
-> module Matrix
->   (
->   ) where
+> module Matrix where
 
 > import Data.List (intercalate)
 > import HList
 > import MyHList
 > import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
 > import Numeric.Units.Dimensional.Prelude
-> import qualified Prelude
+> import qualified Prelude as P
 > import qualified Orthogonals as O
 > import Vector
 
@@ -154,6 +152,12 @@ Multiplication of two matrices.
 > data MatMat m
 > instance MatrixVector m v v' => Apply (MatMat m) v v' where apply _ _ = undefined
 > instance (Transpose m2 m2', HMap (MatMat m1) m2' m3) => MatrixMatrix m1 m2 m3
+
+
+Scale a matrix (multiply by a scalar).
+
+> scaleMat :: (HMap (ScaleV, d) vs1 vs2, Num a) => Quantity d a -> Mat vs1 a -> Mat vs2 a
+> scaleMat (Dimensional x) (ListMat vs) = ListMat (fmap (fmap (x P.*)) vs)
 
 
 Test values
