@@ -36,7 +36,7 @@ Linearizing
 
 @unlinearizeC@ converts a function of time to 'CPos' into a 'CPosVel' at time 0. I'm not super-happy with the @Floating@ constraint, which I realize I might even have to promote to @RealFloat@ at some point!
 
-> unlinearizeC :: Floating a => (forall b. Floating b => Time b -> CPos b) -> CPosVel a
+> unlinearizeC :: RealFloat a => (forall b. RealFloat b => Time b -> CPos b) -> CPosVel a
 > unlinearizeC f = CPosVel (f t_0) (diffV f t_0) where t_0 = 0 *~ second
 
 Alternative definition without the 'Floating' constraint. Note the ugliness of having to pass the function twice!
@@ -44,6 +44,51 @@ Alternative definition without the 'Floating' constraint. Note the ugliness of h
 > -- unlinearizeC' :: Num a => (Time a -> CPos a) -> 
 > --   (forall tag. Time (Dual tag a) -> CPos (Dual tag a)) -> CPosVel a
 > -- unlinearizeC' f f' = CPosVel (f t_0) (diffV f' t_0) where t_0 = 0 *~ second
+
+Analogous for spherical coordinates.
+
+> linearizeS :: Num a => SPosVel a -> (Time a -> SPos a)
+> linearizeS (SPosVel p v) = \t -> p `elemAdd` (scaleVec t v)
+
+> unlinearizeS :: RealFloat a => (forall b. RealFloat b => Time b -> SPos b) -> SPosVel a
+> unlinearizeS f = SPosVel (f t_0) (diffV f t_0) where t_0 = 0 *~ second
+
+
+Converting
+----------
+
+Converts a cartesian position vector into a spherical position vector.
+
+> c2s :: RealFloat a => CPos a -> SPos a
+> c2s c = fromHList (r .*. ra .*. dec .*. HNil)
+>   where
+>     HCons x (HCons y (HCons z HNil)) = toHList c
+>     r   = sqrt (x^pos2 + y^pos2 + z^pos2)
+>     ra  = atan2 y x
+>     dec = if r == 0 *~ meter then _0 else asin (z / r)
+
+> c2sEphem :: RealFloat a => (forall b. RealFloat b => CPosVel b) -> SPosVel a
+> c2sEphem c = unlinearizeS st
+>   where
+>     ct = linearizeC c -- Time -> CPos
+>     st = c2s . ct     -- Time -> SPos
+
+Converts a spherical position vector into a cartesian position vector.
+
+> s2c :: RealFloat a => SPos a -> CPos a
+> s2c s = fromHList (x .*. y .*. z .*. HNil)
+>   where
+>     HCons r (HCons ra (HCons dec HNil)) = toHList s
+>     x = r * cos dec * cos ra
+>     y = r * cos dec * sin ra
+>     z = r * sin dec
+
+> s2cEphem :: RealFloat a => (forall b. RealFloat b => SPosVel b) -> CPosVel a
+> s2cEphem s = unlinearizeC ct
+>   where
+>     st = linearizeS s -- Time -> SPos
+>     ct = s2c . st     -- Time -> CPos
+
 
 
 Rotation matrices (cartesian)
