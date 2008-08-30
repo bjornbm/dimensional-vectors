@@ -136,9 +136,10 @@ term that could be used... project??
 >   matVec :: Num a => Mat vs a -> Vec v a -> Vec v' a
 >   matVec (ListMat vs) (ListVec v) = ListVec (O.matrix_ket vs v)
 
-> data MatVec v
-> instance DotProduct v1 v2 v3 => Apply (MatVec v2) v1 v3 where apply _ _ = undefined
-> instance HMap (MatVec v) m m' => MatrixVector m v m'
+> data DotProd
+> instance DotProduct v1 v2 v3 => Apply  DotProd (v2, v1) v3 where apply _ _ = undefined
+> instance DotProduct v1 v2 v3 => Apply (DotProd, v2) v1  v3 where apply _ _ = undefined
+> instance HMap (DotProd, v) m m' => MatrixVector m v m'
 
 
 Matrix time matrix
@@ -149,15 +150,34 @@ Multiplication of two matrices.
 >   matMat :: Num a => Mat m1 a -> Mat m2 a -> Mat m3 a
 >   matMat (ListMat m) (ListMat m') = ListMat (O.matrix_matrix m (O.transposed m'))
 
-> data MatMat m
-> instance MatrixVector m v v' => Apply (MatMat m) v v' where apply _ _ = undefined
-> instance (Transpose m2 m2', HMap (MatMat m1) m2' m3) => MatrixMatrix m1 m2 m3
+> data MatVec
+> instance MatrixVector m v v' => Apply  MatVec (m, v) v' where apply _ _ = undefined
+> instance MatrixVector m v v' => Apply (MatVec, m) v  v' where apply _ _ = undefined
+> instance (Transpose m2 m2', HMap (MatVec, m1) m2' m3', Transpose m3' m3)
+>   => MatrixMatrix m1 m2 m3
 
 
+Miscellaneous
+=============
 Scale a matrix (multiply by a scalar).
+
+> data ScaleV
+> instance HMap (MulD, d) ds1 ds2 => Apply  ScaleV (d, ds1) ds2 where apply _ = undefined
+> instance HMap (MulD, d) ds1 ds2 => Apply (ScaleV, d) ds1  ds2 where apply _ = undefined
 
 > scaleMat :: (HMap (ScaleV, d) vs1 vs2, Num a) => Quantity d a -> Mat vs1 a -> Mat vs2 a
 > scaleMat (Dimensional x) (ListMat vs) = ListMat (fmap (fmap (x P.*)) vs)
+
+Addition and subtraction of matrices.
+
+> mElemAdd :: Num a => Mat vs a -> Mat vs a -> Mat vs a
+> mElemAdd (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.+)) vs1 vs2)
+
+> mElemSub :: Num a => Mat vs a -> Mat vs a -> Mat vs a
+> mElemSub (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.-)) vs1 vs2)
+
+
+> ex (ListMat vs) = vs
 
 
 Test values
@@ -182,3 +202,9 @@ Test values
 > m6m8 = matMat m6 m8
 > m8m6 = matMat m8 m6
 
+> mm1 = rowMatrix $ fromHList $ _1 .*. 2 *~ second .*. HNil
+> mm2 = fromRowHLists 
+>   $   (1 *~ meter ^ pos2            .*. 2 *~ (meter ^ pos2 / second)        .*. HNil)
+>   .*. (3 *~ (meter ^ pos2 / second) .*. 4 *~ (meter ^ pos2 / second ^ pos2) .*. HNil)
+>   .*. HNil
+> vv1 = fromHList (0 *~ meter ^ pos2 .*. 0 *~ (meter ^ pos2 / second) .*. HNil)

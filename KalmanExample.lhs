@@ -11,34 +11,36 @@
 Types.
 
 > type State = Vec (HCons DLength (HCons DVelocity HNil))
+> type Obs   = Vec (HCons DLength HNil)
+> type Control = Vec (HCons DAcceleration HNil)
 
 
 The process.
 
-> f dt = fromRowHLists $ (_1                 .*. dt .*. HNil)
->                    .*. (0 *~ second ^ neg1 .*. _1 .*. HNil)
->                    .*. HNil
+> f dt = fromRowHLists $  (_1                 .*. dt .*. HNil)
+>                     .*. (0 *~ second ^ neg1 .*. _1 .*. HNil)
+>                     .*. HNil
 
-> g dt = fromHList $ dt ^ pos2 / _2
->                .*. dt
->                .*. HNil
+> g dt = colMatrix $ fromHList $  dt ^ pos2 / _2
+>                             .*. dt
+>                             .*. HNil
 
 > --q dt = (sigma_a ^ pos2) `scaleMat` gg where gg = colMatrix (g dt) `matMat` rowMatrix (g dt)
 
 Updating.
 
-> x :: Fractional a => State a -> Acceleration a -> Time a -> State a
-> x x_old a dt = (f dt `matVec` x_old) `elemAdd` (a `scaleVec` g dt)
+> x :: Fractional a => State a -> Control a -> Time a -> State a
+> x x_old a dt = (f dt `matVec` x_old) `elemAdd` (g dt `matVec` a)
 
 > p p_old dt = (f dt `matMat` p_old) `matMat` transpose (f dt)
 
 Observation.
 
-> z :: Num a => State a -> Length a -> Length a
-> z x v = dotProduct h x + v
-> h = fromHList $ _1 .*. 0 *~ second .*. HNil
+> z :: Num a => State a -> Obs a -> Obs a
+> z x v = matVec h x `elemAdd` v
+> h = rowMatrix $ fromHList $ _1 .*. 0 *~ second .*. HNil
 
-> r = sigma_z
+> r = rowMatrix $ vSing $ sigma_z ^ pos2
 
 Initial state and covariance.
 
@@ -53,9 +55,9 @@ Initial state and covariance.
 Some simulation test values.
 
 > dt_1 = 1.0 *~ second  -- Time step.
-> a_1 = 0.01 *~ (meter / second ^ pos2)  -- Acceleration (noisy but not noise!).
+> a_1 = vSing $ 0.01 *~ (meter / second ^ pos2)  -- Acceleration (noisy but not noise!).
 > sigma_a = 0.01 *~ (meter / second ^ pos2)
-> v_1 = 0.01 *~ meter  -- Measurement noise.
+> v_1 = vSing $ 0.01 *~ meter  -- Measurement noise.
 > sigma_z = 0.001 *~ meter
 
 Some updates...
@@ -64,4 +66,6 @@ Some updates...
 > p_1 = p p_0 dt_1
 > z_1 = z x_1 v_1
 
-> y_1 = z_1 - dotProduct h x_1 
+> y_1 = z_1 `elemSub` matVec h x_1  -- Innovation.
+> s_1 = h `matMat` p_0 `matMat` transpose h `mElemAdd` r
+

@@ -1,5 +1,13 @@
 A representation of vectors where elements are quantities that may
-have mixed physical dimensions.
+have mixed physical dimensions. The goal is to check at compile
+time that for any given operation the involved vectors have compatible
+dimensions and that their elements have compatible physical dimensions.
+
+In our initially implementation we use an inefficient internal
+represenation of vectors based on plain lists. The intent is that
+the internal representation can be transparently changed to something
+more efficient (e.g.  GSLHaskell) once all the type trickery has
+been worked out.
 
 > {-# OPTIONS_GHC -fglasgow-exts -fallow-undecidable-instances #-}
 
@@ -28,8 +36,7 @@ corresponding to the elements of the list @[a]@. This will be an
 abstract data type with constructor functions guaranteeing this
 invariant.
 
-> data Vec ds a = ListVec [a] -- deriving Show
-> -- instance Functor (Vec ds) where fmap f (ListVec xs) = ListVec (map f xs)
+> data Vec ds a = ListVec [a] deriving (Eq)
 
 Showing
 -------
@@ -166,6 +173,9 @@ Elementwise addition of vectors.
 > elemAdd :: Num a => Vec ds a -> Vec ds a -> Vec ds a
 > elemAdd (ListVec v1) (ListVec v2) = ListVec (zipWith (P.+) v1 v2)
 
+> elemSub :: Num a => Vec ds a -> Vec ds a -> Vec ds a
+> elemSub (ListVec v1) (ListVec v2) = ListVec (zipWith (P.-) v1 v2)
+
 Scale a vector (multiply with a scalar).
 
 > {-
@@ -176,10 +186,6 @@ Scale a vector (multiply with a scalar).
 > -}
 > scaleVec :: (HMap (MulD, d) ds1 ds2, Num a) => Quantity d a -> Vec ds1 a -> Vec ds2 a
 > scaleVec (Dimensional x) (ListVec xs) = ListVec (map (x P.*) xs)
-
-> data ScaleV
-> instance HMap (MulD, d) ds1 ds2 => Apply  ScaleV (d, ds1) ds2 where apply _ = undefined
-> instance HMap (MulD, d) ds1 ds2 => Apply (ScaleV, d) ds1  ds2 where apply _ = undefined
 
 
 
