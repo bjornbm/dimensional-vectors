@@ -17,14 +17,14 @@
 > v_z = 1 *~ mps
 > p = (vCons x $ vCons y $ vSing z)
 > v = (vCons v_x $ vCons v_y $ vSing v_z)
-> pvc = CPosVel p v
+> pvc = (p, v)
 > pvs = c2sEphem pvc
 
 > prop_linC = pvc == pv' where
->   pv' = unlinearizeC $ linearizeC pvc
+>   pv' = unlinearizeC $ linearize pvc
 
 > prop_linS = pvs == pv' where
->   pv' = unlinearizeS $ linearizeS pvs
+>   pv' = unlinearizeS $ linearize pvs
 
 > main = do
 >   quickCheck prop_linC

@@ -23,8 +23,8 @@ Some type synonyms for convenience.
 
 Data type combining position and velocity into a state vector (minus epoch).
 
-> data CPosVel a = CPosVel (CPos a) (CVel a) deriving (Eq, Show)
-> data SPosVel a = SPosVel (SPos a) (SVel a) deriving (Eq, Show)
+> type CPosVel a = (CPos a, CVel a)
+> type SPosVel a = (SPos a, SVel a)
 
 
 Linearizing
@@ -32,12 +32,12 @@ Linearizing
 @linearizeC@ converts a 'CPosVel' into a function of time linearized about the original position.
 
 > linearizeC :: Num a => CPosVel a -> (Time a -> CPos a)
-> linearizeC (CPosVel p v) = \t -> p `elemAdd` (scaleVec t v)
+> linearizeC (p, v) = \t -> p `elemAdd` (scaleVec t v)
 
 @unlinearizeC@ converts a function of time to 'CPos' into a 'CPosVel' at time 0. I'm not super-happy with the @Floating@ constraint, which I realize I might even have to promote to @RealFloat@ at some point!
 
 > unlinearizeC :: RealFloat a => (forall b. RealFloat b => Time b -> CPos b) -> CPosVel a
-> unlinearizeC f = CPosVel (f t_0) (diffV f t_0) where t_0 = 0 *~ second
+> unlinearizeC f = (f t_0, diffV f t_0) where t_0 = 0 *~ second
 
 Alternative definition without the 'Floating' constraint. Note the ugliness of having to pass the function twice!
 
@@ -47,11 +47,12 @@ Alternative definition without the 'Floating' constraint. Note the ugliness of h
 
 Analogous for spherical coordinates.
 
-> linearizeS :: Num a => SPosVel a -> (Time a -> SPos a)
-> linearizeS (SPosVel p v) = \t -> p `elemAdd` (scaleVec t v)
+> --linearizeS :: Num a => SPosVel a -> (Time a -> SPos a)
+> linearize (p, v) = \t -> p `elemAdd` (scaleVec t v)
 
 > unlinearizeS :: RealFloat a => (forall b. RealFloat b => Time b -> SPos b) -> SPosVel a
-> unlinearizeS f = SPosVel (f t_0) (diffV f t_0) where t_0 = 0 *~ second
+> unlinearizeS f = (f t_0, diffV f t_0) where t_0 = 0 *~ second
+> -- unlinearize f = (f t_0, diffV f t_0) where t_0 = 0 *~ second
 
 
 Converting
@@ -70,12 +71,12 @@ Converts a cartesian position vector into a spherical position vector.
 > c2sEphem :: RealFloat a => (forall b. RealFloat b => CPosVel b) -> SPosVel a
 > c2sEphem c = unlinearizeS st
 >   where
->     ct = linearizeC c -- Time -> CPos
+>     ct = linearize c -- Time -> CPos
 >     st = c2s . ct     -- Time -> SPos
 
 Converts a spherical position vector into a cartesian position vector.
 
-> s2c :: RealFloat a => SPos a -> CPos a
+> s2c :: Floating a => SPos a -> CPos a
 > s2c s = fromHList (x .*. y .*. z .*. HNil)
 >   where
 >     HCons r (HCons ra (HCons dec HNil)) = toHList s
@@ -86,7 +87,7 @@ Converts a spherical position vector into a cartesian position vector.
 > s2cEphem :: RealFloat a => (forall b. RealFloat b => SPosVel b) -> CPosVel a
 > s2cEphem s = unlinearizeC ct
 >   where
->     st = linearizeS s -- Time -> SPos
+>     st = linearize s -- Time -> SPos
 >     ct = s2c . st     -- Time -> CPos
 
 
