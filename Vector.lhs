@@ -117,12 +117,68 @@ dimensions of its element.
 > instance Homo (HCons d ds) d => Homo (HCons d (HCons d ds)) d
 
 
-Dot product
-===========
+Utility functions (do not export!)
+==================================
+Note that the type signatures permit coercion. The burden of verifying consistency with type signature rests on user. Care must be taken to specify expected/desired return type explicitly to be sure expected results are obtained. These functions should not be exported outside this module!
+
+Map a function to the numeric representations of the elements of a vector.
+
+> vMap :: (a -> b) -> Vec ds a -> Vec ds' b
+> vMap f (ListVec xs) = ListVec (map f xs)
+
+Note the lack of type signature permits dangerous coersion. Burden of verifying signature rests on user. Therefore this function should not be exported outside this module.
+
+> vZipWith :: (a -> b -> c) -> Vec ds a -> Vec ds' b -> Vec ds'' c
+> vZipWith f (ListVec v1) (ListVec v2) = ListVec (zipWith f v1 v2)
+
+
+Elementwise binary operators
+============================
+
+Elementwise addition of vectors.
+
+> elemAdd :: Num a => Vec ds a -> Vec ds a -> Vec ds a
+> elemAdd = vZipWith (P.+)
+
+> elemSub :: Num a => Vec ds a -> Vec ds a -> Vec ds a
+> elemSub = vZipWith (P.-)
+
+
+Elementwise multiplication of vectors.
 
 > data MulD = MulD
 > instance Mul d1 d2 d3 => Apply  MulD (d1, d2) d3 where apply _ _ = undefined
+
+> elemMul :: (HZipWith MulD ds1 ds2 ds3, Num a) => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
+> elemMul = vZipWith (P.*)
+
+Elementwise division of vectors.
+
+> data DivD = DivD
+> instance Div d1 d2 d3 => Apply  DivD (d1, d2) d3 where apply _ _ = undefined
+
+> elemDiv :: (HZipWith DivD ds1 ds2 ds3, Fractional a) => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
+> elemDiv = vZipWith (P./)
+
+Scaling of vectors
+==================
+
 > instance Mul d1 d2 d3 => Apply (MulD, d1) d2  d3 where apply _ _ = undefined
+> instance Div d1 d2 d3 => Apply (DivD, d2) d1  d3 where apply _ _ = undefined
+
+| Scale a vector by multiplication.
+
+> scaleVec :: (HMap (MulD, d) ds1 ds2, Num a) => Quantity d a -> Vec ds1 a -> Vec ds2 a
+> scaleVec (Dimensional x) (ListVec xs) = ListVec (map (x P.*) xs)
+
+| Scale a vector by division.
+
+> scaleVec' :: (HMap (DivD,d) ds1 ds2, Fractional a) => Vec ds1 a -> Quantity d a -> Vec ds2 a
+> scaleVec' (ListVec xs) (Dimensional x) = ListVec (map (P./ x) xs)
+
+
+Dot product
+===========
 
 This class allows calculating the dot product of two vectors assuming
 they have suitable elements.
@@ -160,21 +216,6 @@ Miscellaneous
 > vSum :: (Homo ds d, Num a) => Vec ds a -> Quantity d a
 > vSum (ListVec xs) = Dimensional (P.sum xs)
 
-Elementwise multiplication of vectors.
-
-> -- class ElemMul ds1 ds2 ds3 | ds1 ds2 -> ds3 where
-> --   elemMul :: Num a => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
-> --   elemMul (ListVec v1) (ListVec v2) = ListVec (zipWith (P.*) v1 v2)
-> elemMul :: (HZipWith MulD ds1 ds2 ds3, Num a) => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
-> elemMul (ListVec v1) (ListVec v2) = ListVec (zipWith (P.*) v1 v2)
-
-Elementwise addition of vectors.
-
-> elemAdd :: Num a => Vec ds a -> Vec ds a -> Vec ds a
-> elemAdd (ListVec v1) (ListVec v2) = ListVec (zipWith (P.+) v1 v2)
-
-> elemSub :: Num a => Vec ds a -> Vec ds a -> Vec ds a
-> elemSub (ListVec v1) (ListVec v2) = ListVec (zipWith (P.-) v1 v2)
 
 Scale a vector (multiply with a scalar).
 
@@ -184,8 +225,8 @@ Scale a vector (multiply with a scalar).
 >   scaleVec (Dimensional x) (ListVec xs) = ListVec (map (x P.*) xs)
 > instance HMap (MulD, d) ds1 ds2 => ScaleVec d ds1 ds2
 > -}
-> scaleVec :: (HMap (MulD, d) ds1 ds2, Num a) => Quantity d a -> Vec ds1 a -> Vec ds2 a
-> scaleVec (Dimensional x) (ListVec xs) = ListVec (map (x P.*) xs)
+
+
 
 
 

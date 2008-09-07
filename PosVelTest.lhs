@@ -17,14 +17,16 @@
 > v_z = 1 *~ mps
 > p = (vCons x $ vCons y $ vSing z)
 > v = (vCons v_x $ vCons v_y $ vSing v_z)
-> pvc = (p, v)
-> pvs = c2sEphem pvc
+> pvc = (p, v) :: RealFloat a => CPosVel a
+> pvs = c2sEphem pvc 
+> f :: Fractional a => Time a -> CPos a
+> f = \t -> scaleVec t v
 
 > prop_linC = pvc == pv' where
->   pv' = unlinearizeC $ linearize pvc
+>   pv' = unlinearize (linearize pvc :: RealFloat a => Time a -> CPos a)
 
 > prop_linS = pvs == pv' where
->   pv' = unlinearizeS $ linearize pvs
+>   pv' = unlinearize (linearize pvs :: RealFloat a => Time a -> SPos a)
 
 > main = do
 >   quickCheck prop_linC

@@ -10,6 +10,7 @@ The convention in this module is that a @C@ denotes cartesian coordinates and an
 > import Matrix
 > import ForwardAD
 > import Numeric.Units.Dimensional.Prelude
+> import Numeric.Units.Dimensional (Dimensional (Dimensional))
 > import HList
 > import Fad (Dual)
 
@@ -29,35 +30,25 @@ Data type combining position and velocity into a state vector (minus epoch).
 
 Linearizing
 -----------
-@linearizeC@ converts a 'CPosVel' into a function of time linearized about the original position.
+@linearize@ converts a pair of a vector and its derivative into a function of time linearized about the original vector at @t=0@. In order for the function to be differetiable the numeric representation of the function cannot be limited to that of the inputs. Therefore we need to use 'fromRealFrac' to coerce the types. Hopefully the compiler is clever about optimizing these away when going to/from the same type.
 
-> linearizeC :: Num a => CPosVel a -> (Time a -> CPos a)
-> linearizeC (p, v) = \t -> p `elemAdd` (scaleVec t v)
+> linearize :: forall a b d ds ds'. (Real a, Fractional b, HMap (MulD,d) ds' ds)
+>           => (Vec ds a, Vec ds' a) -> (Quantity d b -> Vec ds b)
+> linearize (p, v) = \t -> p' `elemAdd` (scaleVec t v') 
+>   where
+>     p' = vMap fromRealFrac p :: Vec ds b
+>     v' = vMap fromRealFrac v :: Vec ds' b
+>     fromRealFrac = Prelude.fromRational . Prelude.toRational
 
-@unlinearizeC@ converts a function of time to 'CPos' into a 'CPosVel' at time 0. I'm not super-happy with the @Floating@ constraint, which I realize I might even have to promote to @RealFloat@ at some point!
+@unlinearize@ converts a function of @x@ to a vector into a pair of the vector and its derivative at @x=0@. I'm not super-happy with the @RealFloat@ constraint but it is necessary for deriving.
 
-> unlinearizeC :: RealFloat a => (forall b. RealFloat b => Time b -> CPos b) -> CPosVel a
-> unlinearizeC f = (f t_0, diffV f t_0) where t_0 = 0 *~ second
-
-Alternative definition without the 'Floating' constraint. Note the ugliness of having to pass the function twice!
-
-> -- unlinearizeC' :: Num a => (Time a -> CPos a) -> 
-> --   (forall tag. Time (Dual tag a) -> CPos (Dual tag a)) -> CPosVel a
-> -- unlinearizeC' f f' = CPosVel (f t_0) (diffV f' t_0) where t_0 = 0 *~ second
-
-Analogous for spherical coordinates.
-
-> --linearizeS :: Num a => SPosVel a -> (Time a -> SPos a)
-> linearize (p, v) = \t -> p `elemAdd` (scaleVec t v)
-
-> unlinearizeS :: RealFloat a => (forall b. RealFloat b => Time b -> SPos b) -> SPosVel a
-> unlinearizeS f = (f t_0, diffV f t_0) where t_0 = 0 *~ second
-> -- unlinearize f = (f t_0, diffV f t_0) where t_0 = 0 *~ second
+> unlinearize :: ( RealFloat a, HMap (DivD,d) ds ds')
+>             => (forall b. RealFloat b => Quantity d b -> Vec ds b) -> (Vec ds a, Vec ds' a)
+> unlinearize f = (f t_0, diffV f t_0) where t_0 = Dimensional 0
 
 
 Converting
 ----------
-
 Converts a cartesian position vector into a spherical position vector.
 
 > c2s :: RealFloat a => CPos a -> SPos a
@@ -68,11 +59,8 @@ Converts a cartesian position vector into a spherical position vector.
 >     ra  = atan2 y x
 >     dec = if r == 0 *~ meter then _0 else asin (z / r)
 
-> c2sEphem :: RealFloat a => (forall b. RealFloat b => CPosVel b) -> SPosVel a
-> c2sEphem c = unlinearizeS st
->   where
->     ct = linearize c -- Time -> CPos
->     st = c2s . ct     -- Time -> SPos
+> c2sEphem :: RealFloat a => CPosVel a -> SPosVel a
+> c2sEphem c = unlinearize (c2s . linearize c :: RealFloat b => Time b -> SPos b)
 
 Converts a spherical position vector into a cartesian position vector.
 
@@ -84,11 +72,8 @@ Converts a spherical position vector into a cartesian position vector.
 >     y = r * cos dec * sin ra
 >     z = r * sin dec
 
-> s2cEphem :: RealFloat a => (forall b. RealFloat b => SPosVel b) -> CPosVel a
-> s2cEphem s = unlinearizeC ct
->   where
->     st = linearize s -- Time -> SPos
->     ct = s2c . st     -- Time -> CPos
+> s2cEphem :: RealFloat a => SPosVel a -> CPosVel a
+> s2cEphem s = unlinearize (s2c . linearize s :: RealFloat b => Time b -> CPos b)
 
 
 
