@@ -3,11 +3,11 @@ have mixed physical dimensions. The goal is to check at compile
 time that for any given operation the involved vectors have compatible
 dimensions and that their elements have compatible physical dimensions.
 
-In our initially implementation we use an inefficient internal
-represenation of vectors based on plain lists. The intent is that
-the internal representation can be transparently changed to something
-more efficient (e.g.  GSLHaskell) once all the type trickery has
-been worked out.
+One could argue that in most cases it makes little sense to have quantities of different physical dimensions in any given vector/matrix, and in general I agree. (Indeed, if we were to allow only "homogeneous" vectors our (type-level) implementation could be much simplified. Type-level HLists would not be necessary, only a single type parameter for the physical dimension together with a 'PosType' for the length.) However, linear algebra applications like kalman filtering and weighted least squares estimation use heterogeneous state vectors and covariance matrices.
+
+In our initial implementation we use an inefficient internal
+represenation of vectors based on plain lists. The idea is that changing
+the internal representation to something more efficient (e.g.  GSLHaskell) will be transparent once all the type trickery has been worked out.
 
 > {-# OPTIONS_GHC -fglasgow-exts -fallow-undecidable-instances #-}
 
@@ -20,6 +20,7 @@ been worked out.
 > import Data.List (intercalate)
 > import HList
 > import MyHList
+> import Numeric.NumType (PosType, toNum)
 > import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
 > import Numeric.Units.Dimensional.Prelude
 > import qualified Prelude as P
@@ -83,8 +84,8 @@ This class allows converting a vector to an equivalent HList.
 >   where toHList v = HCons (vHead v) (toHList $ vTail v)
 
 
-Head and tail
--------------
+Querying
+--------
 | Return the first element of the vector.
 
 > vHead :: Vec (HCons d ds) a -> Quantity d a
@@ -97,10 +98,15 @@ of empty vectors.
 > vTail :: Vec (HCons d ds) a -> Vec ds a
 > vTail (ListVec xs) = ListVec (tail xs)
 
-| Unwrap a singular vector.
+| Unwrap a singular vector. (Use 'vHead' instead?)
 
 > --fromSing :: Vec (HCons d HNil) a -> Quantity d a
 > --fromSing (ListVec [x]) = Dimensional x
+
+| @vElem n vec@ returns the @n@:th element of @vec@. The index @n@ is zero-based. I could chose use an HNat for indexing instead of a NumType. It would simplify the type signatures but users are more likely to already have NumTypes in scope than HNats.
+
+> vElemAt :: (HNatNumType n' n, HLookupByHNat n' ds d) => n -> Vec ds a -> Quantity d a
+> vElemAt n (ListVec xs) = Dimensional (xs!!toNum n)
 
 
 Homogenity
@@ -135,43 +141,52 @@ Note the lack of type signature permits dangerous coersion. Burden of verifying 
 Elementwise binary operators
 ============================
 
-Elementwise addition of vectors.
+| Elementwise addition of vectors. The vectors must have the same size and element types.
 
 > elemAdd :: Num a => Vec ds a -> Vec ds a -> Vec ds a
 > elemAdd = vZipWith (P.+)
 
+| Elementwise subraction of vectors. The vectors must have the same size and element types.
+
 > elemSub :: Num a => Vec ds a -> Vec ds a -> Vec ds a
 > elemSub = vZipWith (P.-)
 
+Elementwise multiplication of vectors
+-------------------------------------
 
-Elementwise multiplication of vectors.
-
-> data MulD = MulD
+> data MulD -- = MulD
 > instance Mul d1 d2 d3 => Apply  MulD (d1, d2) d3 where apply _ _ = undefined
+
+| Multiplies each element i of the first argument vector by the corresponding element of the second argument.
 
 > elemMul :: (HZipWith MulD ds1 ds2 ds3, Num a) => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
 > elemMul = vZipWith (P.*)
 
-Elementwise division of vectors.
+Elementwise division of vectors
+-------------------------------
 
-> data DivD = DivD
+> data DivD -- = DivD
 > instance Div d1 d2 d3 => Apply  DivD (d1, d2) d3 where apply _ _ = undefined
+
+| Divides each element i of the first argument vector by the corresponding element of the second argument.
 
 > elemDiv :: (HZipWith DivD ds1 ds2 ds3, Fractional a) => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
 > elemDiv = vZipWith (P./)
 
+
 Scaling of vectors
 ==================
+Should I change the order of arguments here so the vector always comes first? Last?
 
 > instance Mul d1 d2 d3 => Apply (MulD, d1) d2  d3 where apply _ _ = undefined
 > instance Div d1 d2 d3 => Apply (DivD, d2) d1  d3 where apply _ _ = undefined
 
-| Scale a vector by multiplication.
+| Scale a vector by multiplication. Each element of the vector is multiplied by the first argument.
 
 > scaleVec :: (HMap (MulD, d) ds1 ds2, Num a) => Quantity d a -> Vec ds1 a -> Vec ds2 a
 > scaleVec (Dimensional x) (ListVec xs) = ListVec (map (x P.*) xs)
 
-| Scale a vector by division.
+| Scale a vector by division. Each element of the vector is divided by the second argument.
 
 > scaleVec' :: (HMap (DivD,d) ds1 ds2, Fractional a) => Vec ds1 a -> Quantity d a -> Vec ds2 a
 > scaleVec' (ListVec xs) (Dimensional x) = ListVec (map (P./ x) xs)
