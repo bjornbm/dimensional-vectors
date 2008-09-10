@@ -2,7 +2,7 @@
 
 > module ForwardAD (diffV,diffNumV) where
 
-> import HList (HMap)
+> import Data.HList (HMap)
 > import Numeric.Units.Dimensional (Dimensional (Dimensional), Quantity, Div, DOne)
 > import Vector (Vec (ListVec), MulD, DivD)
 > import Fad (dNumF, dRealFloatF)

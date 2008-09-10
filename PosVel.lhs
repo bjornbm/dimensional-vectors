@@ -11,7 +11,7 @@ The convention in this module is that a @C@ denotes cartesian coordinates and an
 > import ForwardAD
 > import Numeric.Units.Dimensional.Prelude
 > import Numeric.Units.Dimensional (Dimensional (Dimensional))
-> import HList
+> import Data.HList
 > import Fad (Dual)
 
 Some type synonyms for convenience.

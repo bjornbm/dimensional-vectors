@@ -2,7 +2,7 @@
 
 > module MyHList where
 
-> import HList
+> import Data.HList
 > import Numeric.NumType (PosType, Zero, Pos)
 
 | This class is a candidate for the HList library I would think.

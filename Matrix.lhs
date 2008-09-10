@@ -3,7 +3,7 @@
 > module Matrix where
 
 > import Data.List (intercalate)
-> import HList
+> import Data.HList
 > import MyHList
 > import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
 > import Numeric.Units.Dimensional.Prelude

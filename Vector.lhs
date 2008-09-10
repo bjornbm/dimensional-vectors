@@ -3,11 +3,21 @@ have mixed physical dimensions. The goal is to check at compile
 time that for any given operation the involved vectors have compatible
 dimensions and that their elements have compatible physical dimensions.
 
-One could argue that in most cases it makes little sense to have quantities of different physical dimensions in any given vector/matrix, and in general I agree. (Indeed, if we were to allow only "homogeneous" vectors our (type-level) implementation could be much simplified. Type-level HLists would not be necessary, only a single type parameter for the physical dimension together with a 'PosType' for the length.) However, linear algebra applications like kalman filtering and weighted least squares estimation use heterogeneous state vectors and covariance matrices.
+One could argue that in most cases it makes little sense to have
+quantities of different physical dimensions in any given vector/matrix,
+and in general I agree. (Indeed, if we were to allow only "homogeneous"
+vectors our (type-level) implementation could be much simplified.
+Type-level HLists would not be necessary, only a single type parameter
+for the physical dimension together with a 'PosType' for the length.)
+However, linear algebra applications like kalman filtering and
+weighted least squares estimation use heterogeneous state vectors
+and covariance matrices.
 
 In our initial implementation we use an inefficient internal
-represenation of vectors based on plain lists. The idea is that changing
-the internal representation to something more efficient (e.g.  GSLHaskell) will be transparent once all the type trickery has been worked out.
+represenation of vectors based on plain lists. The idea is that
+changing the internal representation to something more efficient
+(e.g.  GSLHaskell) will be transparent once all the type trickery
+has been worked out.
 
 > {-# OPTIONS_GHC -fglasgow-exts -fallow-undecidable-instances #-}
 
@@ -18,7 +28,7 @@ the internal representation to something more efficient (e.g.  GSLHaskell) will 
 >   ) -} where
 
 > import Data.List (intercalate)
-> import HList
+> import Data.HList
 > import MyHList
 > import Numeric.NumType (PosType, toNum)
 > import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
@@ -111,10 +121,11 @@ of empty vectors.
 
 Homogenity
 ==========
-This class guarantees a vector is homogenuous w r t the physical
+| This class guarantees that a vector is homogenuous w r t the physical
 dimensions of its element.
 
 > class Homo ds d | ds -> d where
+>   -- | Converts a homogeneous vector to a list.
 >   toList :: Vec ds a -> [Quantity d a]
 >   toList (ListVec xs) = map Dimensional xs
 > --instance Homo HNil d
@@ -151,10 +162,11 @@ Elementwise binary operators
 > elemSub :: Num a => Vec ds a -> Vec ds a -> Vec ds a
 > elemSub = vZipWith (P.-)
 
+
 Elementwise multiplication of vectors
 -------------------------------------
 
-> data MulD -- = MulD
+> data MulD
 > instance Mul d1 d2 d3 => Apply  MulD (d1, d2) d3 where apply _ _ = undefined
 
 | Multiplies each element i of the first argument vector by the corresponding element of the second argument.
@@ -165,7 +177,7 @@ Elementwise multiplication of vectors
 Elementwise division of vectors
 -------------------------------
 
-> data DivD -- = DivD
+> data DivD
 > instance Div d1 d2 d3 => Apply  DivD (d1, d2) d3 where apply _ _ = undefined
 
 | Divides each element i of the first argument vector by the corresponding element of the second argument.
@@ -194,11 +206,11 @@ Should I change the order of arguments here so the vector always comes first? La
 
 Dot product
 ===========
-
-This class allows calculating the dot product of two vectors assuming
+| This class allows calculating the dot product of two vectors assuming
 they have suitable elements.
 
 > class DotProduct ds1 ds2 d | ds1 ds2 -> d where
+>   -- | Compute the dot product of two vectors.
 >   dotProduct :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity d a
 >   dotProduct (ListVec xs1) (ListVec xs2) = Dimensional (O.sum_product xs1 xs2)
 > instance (HZipWith MulD ds1 ds2 ds3, Homo ds3 d) => DotProduct ds1 ds2 d
@@ -212,6 +224,7 @@ It is slightly disconcerting that nothing prevents defining additional
 instances...
 
 > class CrossProduct ds1 ds2 ds3 | ds1 ds2 -> ds3 where
+>   -- | Compute the cross product of two vectors.
 >   crossProduct :: Num a => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
 >   crossProduct (ListVec [a, b, c]) (ListVec [d, e, f]) = ListVec
 >     [ b P.* f P.- e P.* c
@@ -226,21 +239,10 @@ instances...
 
 Miscellaneous
 =============
-| The sum of all elements in a homogenous vector.
+| Compute the sum of all elements in a homogenous vector.
 
 > vSum :: (Homo ds d, Num a) => Vec ds a -> Quantity d a
 > vSum (ListVec xs) = Dimensional (P.sum xs)
-
-
-Scale a vector (multiply with a scalar).
-
-> {-
-> class ScaleVec d ds1 ds2 | d ds1 -> ds2 where
->   scaleVec :: Num a => Quantity d a -> Vec ds1 a -> Vec ds2 a
->   scaleVec (Dimensional x) (ListVec xs) = ListVec (map (x P.*) xs)
-> instance HMap (MulD, d) ds1 ds2 => ScaleVec d ds1 ds2
-> -}
-
 
 
 
