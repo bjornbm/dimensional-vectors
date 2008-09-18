@@ -19,7 +19,7 @@ changing the internal representation to something more efficient
 (e.g.  GSLHaskell) will be transparent once all the type trickery
 has been worked out.
 
-> {-# OPTIONS_GHC -fglasgow-exts -fallow-undecidable-instances #-}
+> {-# OPTIONS_GHC -fglasgow-exts -fallow-undecidable-instances -XTypeOperators #-}
 
 > module Vector
 >   {- ( Vec
