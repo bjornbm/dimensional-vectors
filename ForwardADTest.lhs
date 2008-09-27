@@ -1,7 +1,7 @@
 > {-# OPTIONS_GHC -fglasgow-exts -fno-monomorphism-restriction #-}
 
 > import qualified Prelude
-> import HList
+> import Data.HList
 > import Numeric.Units.Dimensional.Prelude
 > import Numeric.Units.Dimensional.NonSI (gee)
 > import Vector

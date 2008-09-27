@@ -76,30 +76,3 @@ Converts a spherical position vector into a cartesian position vector.
 > s2cEphem s = unlinearize (s2c . linearize s :: RealFloat b => Time b -> CPos b)
 
 
-
-Rotation matrices (cartesian)
------------------------------
-Convenience type for homogeneous 3x3 matrices.
-
-> type Homo33 d = Mat (HCons (d :*: d :*: d :*: HNil)
->                     (HCons (d :*: d :*: d :*: HNil)
->                     (HCons (d :*: d :*: d :*: HNil)
->                     HNil)))
-
-Rotation matrices. Rotates a vector by the given angle (analogous to rotating the coordinate system in opposite direction).
-
-> rotX :: Floating a => PlaneAngle a -> Homo33 DOne a
-> rotX a = consRow   (vCons _1 $ vCons _0      $ vSing _0)
->        $ consRow   (vCons _0 $ vCons (cos a) $ vSing (negate (sin a)))
->        $ rowMatrix (vCons _0 $ vCons (sin a) $ vSing (cos a))
-
-> rotY :: Floating a => PlaneAngle a -> Homo33 DOne a
-> rotY a = consRow   (vCons (cos a)          $ vCons _0 $ vSing (sin a))
->        $ consRow   (vCons _0               $ vCons _1 $ vSing _0)
->        $ rowMatrix (vCons (negate (sin a)) $ vCons _0 $ vSing (cos a))
-
-> rotZ :: Floating a => PlaneAngle a -> Homo33 DOne a
-> rotZ a = consRow   (vCons (cos a) $ vCons (negate (sin a)) $ vSing _0)
->        $ consRow   (vCons (sin a) $ vCons (cos a)          $ vSing _0)
->        $ rowMatrix (vCons _0      $ vCons _0               $ vSing _1)
-

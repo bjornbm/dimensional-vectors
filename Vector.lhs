@@ -30,7 +30,7 @@ has been worked out.
 > import Data.List (intercalate)
 > import Data.HList
 > import MyHList
-> import Numeric.NumType (PosType, toNum)
+> import Numeric.NumType (PosType, toNum, Pos2)
 > import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
 > import Numeric.Units.Dimensional.Prelude
 > import qualified Prelude as P
@@ -244,6 +244,8 @@ Miscellaneous
 > vSum :: (Homo ds d, Num a) => Vec ds a -> Quantity d a
 > vSum (ListVec xs) = Dimensional (P.sum xs)
 
+> vNorm :: (DotProduct ds ds d, RealFloat a, Root d Pos2 d') => Vec ds a -> Quantity d' a
+> vNorm v = sqrt (v `dotProduct` v)
 
 
 

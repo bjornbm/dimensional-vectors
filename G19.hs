@@ -1,10 +1,10 @@
-import PosVel
 import Vector
 import Matrix
 import Numeric.Units.Dimensional.Prelude
 import qualified Prelude
 
 
+{-
 -- | Convert from LVLH frame to ECI frame, assuming zero inclination.
 lvlh2eci scra = rotZ scra `matMat` rotX ((-90)*~degree) `matMat` rotY ((-90)*~degree)
 
@@ -13,9 +13,6 @@ inLVLH scra mat = lvlh2eci scra `matMat` mat `matMat` transpose (lvlh2eci scra)
 ypys = rotZ (0.081*~degree) `matMat` rotY ((65.125)*~degree) `matMat` rotZ ((-179.833)*~degree)
 r = rotX ((1.022)*~degree)
 
-x = vCons _1 $ vCons _0 $ vSing _0
-y = vCons _0 $ vCons _1 $ vSing _0
-z = vCons _0 $ vCons _0 $ vSing _1
 a1 = ypys `matVec` x
 a2 = ypys `matMat` r `matVec` x
 a3 = ypys `matVec` z
@@ -40,3 +37,40 @@ ra' = acos (x `dotProduct` att_f')  -- For very small dec'.
 -- The angle between the desired final vector and the problematic final vector.
 err = acos (att_f `dotProduct` att_f')
 -- -}
+
+
+-- SEQUENCE OF BODY VECTORS, ROW-WISE
+-- (we convert the rows to columns in a matrix)
+atti = consCol (vCons (( 0.9177274117e+00)*~one) $ vCons ((-0.3972104506e+00)*~one) $ vSing ((-0.5057800831e-03)*~one))
+    $   consCol (vCons ((-0.4759639595e-03)*~one) $ vCons (( 0.1736481140e-03)*~one) $ vSing ((-0.9999998717e+00)*~one))
+    $ colMatrix (vCons (( 0.3972104874e+00)*~one) $ vCons (( 0.9177275346e+00)*~one) $ vSing ((-0.2969622460e-04)*~one))
+
+-- G-19 AMF1 slew sequence.
+rotR = rotX ((   1.022)*~degree) -- ES bias.
+rot1 = rotZ ((-179.833)*~degree)
+rot2 = rotY (( -65.125)*~degree)
+rot3 = rotZ (    0.081 *~degree)
+
+-- Slew without ES bias.
+att1 = atti `matMat` rot1
+att2 = att1 `matMat` rot2
+att3 = att2 `matMat` rot3
+z3 = att3 `matVec` z
+
+-- Slew with ES bias.
+attiR = atti  `matMat` rotR
+att1R = attiR `matMat` rot1
+att2R = att1R `matMat` rot2
+att3R = att2R `matMat` rot3
+z3r = att3R `matVec` z
+
+-- Diff between the two.
+err = acos (z3 `dotProduct` z3r)
+
+dec v = 90*~degree - acos (v `dotProduct` z)
+ra  v = acos (v `dotProduct` x) -- only for very small declinations
+-- 0.9996655998D+00    0.2566988705D-01   -0.3121784926D-02
+z_ideal = vCons ((0.9996655998e+00)*~one) $ vCons ((0.2566988705e-01)*~one) $ vSing ((-0.3121784926e-02)*~one)
+
+
+

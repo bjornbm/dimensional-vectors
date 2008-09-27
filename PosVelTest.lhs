@@ -9,13 +9,13 @@
 
 > mps = meter / second
 
-> x = 42164 *~ kilo meter
-> y = 1 *~ meter
-> z = (-0.2) *~ meter
+> x' = 42164 *~ kilo meter
+> y' = 1 *~ meter
+> z' = (-0.2) *~ meter
 > v_x = 0.01 *~ mps
 > v_y = 3075 *~ mps
 > v_z = 1 *~ mps
-> p = (vCons x $ vCons y $ vSing z)
+> p = (vCons x' $ vCons y' $ vSing z')
 > v = (vCons v_x $ vCons v_y $ vSing v_z)
 > pvc = (p, v) :: RealFloat a => CPosVel a
 > pvs = c2sEphem pvc 

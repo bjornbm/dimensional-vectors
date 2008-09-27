@@ -180,6 +180,43 @@ Addition and subtraction of matrices.
 > ex (ListMat vs) = vs
 
 
+Rotation matrices (cartesian)
+-----------------------------
+Convenience type for homogeneous 3x3 matrices.
+
+> type Homo33 d = Mat (HCons (d :*: d :*: d :*: HNil)
+>                     (HCons (d :*: d :*: d :*: HNil)
+>                     (HCons (d :*: d :*: d :*: HNil)
+>                     HNil)))
+
+> type Homo3 d = Vec (d :*: d :*: d :*: HNil)
+
+> x,y,z :: Num a => Homo3 DOne a
+> x = vCons _1 $ vCons _0 $ vSing _0
+> y = vCons _0 $ vCons _1 $ vSing _0
+> z = vCons _0 $ vCons _0 $ vSing _1
+
+Rotation matrices. Rotates a vector by the given angle (analogous to rotating the coordinate system in opposite direction).
+
+> rotX :: Floating a => PlaneAngle a -> Homo33 DOne a
+> rotX a = consRow   (vCons _1 $ vCons _0      $ vSing _0)
+>        $ consRow   (vCons _0 $ vCons (cos a) $ vSing (negate (sin a)))
+>        $ rowMatrix (vCons _0 $ vCons (sin a) $ vSing (cos a))
+
+> rotY :: Floating a => PlaneAngle a -> Homo33 DOne a
+> rotY a = consRow   (vCons (cos a)          $ vCons _0 $ vSing (sin a))
+>        $ consRow   (vCons _0               $ vCons _1 $ vSing _0)
+>        $ rowMatrix (vCons (negate (sin a)) $ vCons _0 $ vSing (cos a))
+
+> rotZ :: Floating a => PlaneAngle a -> Homo33 DOne a
+> rotZ a = consRow   (vCons (cos a) $ vCons (negate (sin a)) $ vSing _0)
+>        $ consRow   (vCons (sin a) $ vCons (cos a)          $ vSing _0)
+>        $ rowMatrix (vCons _0      $ vCons _0               $ vSing _1)
+> -- -}
+> {-
+
+
+
 Test values
 
 > m1 = rowMatrix v1
@@ -208,3 +245,4 @@ Test values
 >   .*. (3 *~ (meter ^ pos2 / second) .*. 4 *~ (meter ^ pos2 / second ^ pos2) .*. HNil)
 >   .*. HNil
 > vv1 = fromHList (0 *~ meter ^ pos2 .*. 0 *~ (meter ^ pos2 / second) .*. HNil)
+> -- -}
