@@ -247,6 +247,8 @@ Miscellaneous
 > vNorm :: (DotProduct ds ds d, RealFloat a, Root d Pos2 d') => Vec ds a -> Quantity d' a
 > vNorm v = sqrt (v `dotProduct` v)
 
+> vNormalize v = scaleVec' v (vNorm v)
+
 
 
 Test values

@@ -40,7 +40,9 @@ Linearizing
 >     v' = vMap fromRealFrac v :: Vec ds' b
 >     fromRealFrac = Prelude.fromRational . Prelude.toRational
 
-@unlinearize@ converts a function of @x@ to a vector into a pair of the vector and its derivative at @x=0@. I'm not super-happy with the @RealFloat@ constraint but it is necessary for deriving.
+@unlinearize@ converts a function of @x@ to a vector into a pair of
+the vector and its derivative at @x=0@. I'm not super-happy with the
+@RealFloat@ constraint but it is necessary for deriving.
 
 > unlinearize :: ( RealFloat a, HMap (DivD,d) ds ds')
 >             => (forall b. RealFloat b => Quantity d b -> Vec ds b) -> (Vec ds a, Vec ds' a)

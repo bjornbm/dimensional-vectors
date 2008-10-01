@@ -22,7 +22,7 @@ Description:
     be readily exchangable for a faster one (e.g. GSLHaskell).
 Category:            Math
 Build-Depends:       base, dimensional, HList, numeric-quest
-Exposed-Modules:     Vector, Matrix, MyHList
+Exposed-Modules:     Vector, Matrix, MyHList, ForwardAD, Fad, PosVel
 Extra-source-files:  README, LICENSE
 ghc-options:         -O
 
