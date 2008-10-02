@@ -244,11 +244,38 @@ Miscellaneous
 > vSum :: (Homo ds d, Num a) => Vec ds a -> Quantity d a
 > vSum (ListVec xs) = Dimensional (P.sum xs)
 
-> vNorm :: (DotProduct ds ds d, RealFloat a, Root d Pos2 d') => Vec ds a -> Quantity d' a
+| Compute the vector norm.
+
+> vNorm :: (DotProduct ds ds d, Root d Pos2 d', RealFloat a) => Vec ds a -> Quantity d' a
 > vNorm v = sqrt (v `dotProduct` v)
 
+| Normalize a vector. The vector must be homogeneous.
+
+> vNormalize :: (DotProduct ds ds d, Root d Pos2 d', HMap (DivD, d') ds ds', RealFloat a) => Vec ds a -> Vec ds' a
 > vNormalize v = scaleVec' v (vNorm v)
 
+
+Convert to tuples
+=================
+| Convert to/from tuple representation. This is primarily to allow taking
+advantage of the syntactic sugar tuples enjoy.
+
+> class VTuple v t | v -> t, t -> v where
+>   toTuple   :: v -> t
+>   fromTuple :: t -> v
+
+| We can brute force the instances ut to a reasonable degree. Presumable
+syntactic sugar loses its value if the vectors get to large as it is
+impractical to deal with them any way other than programmatically.
+
+> instance VTuple (Vec (d1 :*: d2 :*: HNil) a) (Quantity d1 a, Quantity d2 a) where
+>   toTuple v = (vElemAt zero v, vElemAt pos1 v)
+>   fromTuple (x,y) = vCons x $ vSing y
+
+> instance VTuple (Vec     (d1 :*:         d2 :*:         d3 :*: HNil) a) 
+>                 (Quantity d1 a, Quantity d2 a, Quantity d3 a) where
+>   toTuple v = (vElemAt zero v, vElemAt pos1 v, vElemAt pos2 v)
+>   fromTuple (x,y,z) = vCons x $ vCons y $ vSing z
 
 
 Test values
