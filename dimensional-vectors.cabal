@@ -21,6 +21,7 @@ Description:
     The internal vector/matrix representation is slow but should
     be readily exchangable for a faster one (e.g. GSLHaskell).
 Category:            Math
+Build-Type:          Simple
 Build-Depends:       base, dimensional, HList, numeric-quest
 Exposed-Modules:     Vector, Matrix, MyHList, ForwardAD, Fad, PosVel
 Extra-source-files:  README, LICENSE
