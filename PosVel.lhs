@@ -56,8 +56,9 @@ Spherical position.
 > zenith = vElemAt pos1
 > colatitude = zenith
 > polarAngle = zenith
-> latitude s    = pi - colatitude s
-> declination s = pi - colatitude s
+> latitude s = pi - colatitude s
+> declination = latitude
+> elevation   = latitude
 
 > azimuth :: SPos a -> Azimuth a
 > azimuth = vElemAt pos2
@@ -92,12 +93,12 @@ Converting
 Converts a cartesian position vector into a spherical position vector.
 
 > c2s :: RealFloat a => CPos a -> SPos a
-> c2s c = fromHList (r .*. ra .*. dec .*. HNil)
+> c2s c = fromTuple (r, zen, az)
 >   where
->     HCons x (HCons y (HCons z HNil)) = toHList c
->     r   = sqrt (x^pos2 + y^pos2 + z^pos2)
->     ra  = atan2 y x
->     dec = if r == 0 *~ meter then _0 else asin (z / r)
+>     (x, y, z) = toTuple c
+>     r   = vNorm c  -- sqrt (x^pos2 + y^pos2 + z^pos2)
+>     zen = if r == 0 *~ meter then _0 else acos (z / r)
+>     az  = atan2 y x
 
 > c2sEphem :: RealFloat a => CPosVel a -> SPosVel a
 > c2sEphem c = unlinearize (c2s . linearize c :: RealFloat b => Time b -> SPos b)
@@ -107,10 +108,10 @@ Converts a spherical position vector into a cartesian position vector.
 > s2c :: Floating a => SPos a -> CPos a
 > s2c s = fromTuple (x, y, z)
 >   where
->     (r, z, a) = toTuple s
->     x = r * sin z * cos a
->     y = r * sin z * sin a
->     z = r * cos z
+>     (r, zen, az) = toTuple s
+>     x = r * sin zen * cos az
+>     y = r * sin zen * sin az
+>     z = r * cos zen
 
 > s2cEphem :: RealFloat a => SPosVel a -> CPosVel a
 > s2cEphem s = unlinearize (s2c . linearize s :: RealFloat b => Time b -> CPos b)
