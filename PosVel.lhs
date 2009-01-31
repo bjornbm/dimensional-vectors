@@ -14,18 +14,56 @@ The convention in this module is that a @C@ denotes cartesian coordinates and an
 > import Data.HList
 > import Fad (Dual)
 
+Type synonyms for clearer documentation.
+
+> type DRadius  = DLength; type Radius  = Length
+> type DZenith  = DPlaneAngle ; type Zenith  = Angle
+> type DAzimuth = DPlaneAngle ; type Azimuth = Angle
+
+
 Some type synonyms for convenience.
 
 > type Vec3 d1 d2 d3 = Vec (d1 :*: d2 :*: d3 :*: HNil)
-> type CPos = Vec3 DLength DLength DLength  -- x y z
+> type CPos = Vec3 DLength DLength DLength  -- ^ x y z
 > type CVel = Vec3 DVelocity DVelocity DVelocity
-> type SPos = Vec3 DLength DPlaneAngle DPlaneAngle  -- r s dec
+> type SPos = Vec3 DRadius DZenith DAzimuth
 > type SVel = Vec3 DVelocity DAngularVelocity DAngularVelocity
 
 Data type combining position and velocity into a state vector (minus epoch).
 
 > type CPosVel a = (CPos a, CVel a)
 > type SPosVel a = (SPos a, SVel a)
+
+
+Querying
+--------
+
+Cartesian position.
+
+> x :: CPos a -> Length a
+> x = vElemAt zero
+> y :: CPos a -> Length a
+> y = vElemAt pos1
+> z :: CPos a -> Length a
+> z = vElemAt pos2
+
+Spherical position.
+
+> radius :: SPos a -> Radius a
+> radius = vElemAt zero
+
+> zenith :: SPos a -> Zenith a
+> zenith = vElemAt pos1
+> colatitude = zenith
+> polarAngle = zenith
+> latitude s    = pi - colatitude s
+> declination s = pi - colatitude s
+
+> azimuth :: SPos a -> Azimuth a
+> azimuth = vElemAt pos2
+> longitude      = azimuth
+> rightAscension = azimuth
+> hourAngle      = azimuth
 
 
 Linearizing
@@ -67,12 +105,12 @@ Converts a cartesian position vector into a spherical position vector.
 Converts a spherical position vector into a cartesian position vector.
 
 > s2c :: Floating a => SPos a -> CPos a
-> s2c s = fromHList (x .*. y .*. z .*. HNil)
+> s2c s = fromTuple (x, y, z)
 >   where
->     HCons r (HCons ra (HCons dec HNil)) = toHList s
->     x = r * cos dec * cos ra
->     y = r * cos dec * sin ra
->     z = r * sin dec
+>     (r, z, a) = toTuple s
+>     x = r * sin z * cos a
+>     y = r * sin z * sin a
+>     z = r * cos z
 
 > s2cEphem :: RealFloat a => SPosVel a -> CPosVel a
 > s2cEphem s = unlinearize (s2c . linearize s :: RealFloat b => Time b -> CPos b)
