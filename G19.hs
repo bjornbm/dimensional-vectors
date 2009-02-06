@@ -74,3 +74,20 @@ z_ideal = vCons ((0.9996655998e+00)*~one) $ vCons ((0.2566988705e-01)*~one) $ vS
 
 
 
+--8<------- From G19_AMF3.hs ---------8<------------------
+
+-- minus x
+negX = rotZ (180*~degree) `matVec` x
+
+sunECI = rotY sunDec `matMat` rotZ sunRA `matVec` x where
+  sunRA  = 184.965  *~ degree
+  sunDec = (-2.149) *~ degree
+sunECI' = rotZ sunRA `matMat` rotY sunDec `matVec` x where
+  sunRA  = 184.965  *~ degree
+  sunDec = (-2.149) *~ degree
+
+ecassSC = rotY pitchBias `matMat` rotZ yawBias `matVec` negX where
+  pitchBias = (-15.038) *~ degree
+  yawBias   = ( -0.24 ) *~ degree
+
+
