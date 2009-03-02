@@ -8,11 +8,12 @@ The convention in this module is that a @C@ denotes cartesian coordinates and an
 > import qualified Prelude
 > import Vector
 > import Matrix
-> import ForwardAD
+> import MyHList
 > import Numeric.Units.Dimensional.Prelude
 > import Numeric.Units.Dimensional (Dimensional (Dimensional))
 > import Data.HList
 > import Fad (Dual)
+> import ForwardAD (diffV', liftV)
 
 Type synonyms for clearer documentation.
 
@@ -71,22 +72,34 @@ Linearizing
 -----------
 @linearize@ converts a pair of a vector and its derivative into a function of time linearized about the original vector at @t=0@. In order for the function to be differetiable the numeric representation of the function cannot be limited to that of the inputs. Therefore we need to use 'fromRealFrac' to coerce the types. Hopefully the compiler is clever about optimizing these away when going to/from the same type.
 
-> linearize :: forall a b d ds ds'. (Real a, Fractional b, HMap (MulD,d) ds' ds)
->           => (Vec ds a, Vec ds' a) -> (Quantity d b -> Vec ds b)
-> linearize (p, v) = \t -> p' `elemAdd` (scaleVec t v') 
+@applyLinear@ converts a pair of a vector and its derivative into a function of time linearized about the original vector at @t=0@. Then the function is evaluated 
+
+> applyLinear :: forall a t ds ds' ds2 ds2' ts. (
+>                Real a, Fractional a,
+>                HMap (MulD,t) ds' ds,               -- Used in linearization.
+>                HMap (DivD,t) ds2 ds2',             -- Used in differentiation.
+>                HZipWith DivD ds ds' ts, Homo ts t  -- Necessary to infer t (the dimension w r t which we are differentiating).
+>           ) => (forall tag. Vec ds (Dual tag a) -> Vec ds2 (Dual tag a)) -> (Vec ds a, Vec ds' a) -> (Vec ds2 a, Vec ds2' a)
+> applyLinear f (p,v) = diffV' (\t -> f (liftV p `elemAdd` scaleVec t (liftV v))) t_0
 >   where
->     p' = vMap fromRealFrac p :: Vec ds b
->     v' = vMap fromRealFrac v :: Vec ds' b
->     fromRealFrac = Prelude.fromRational . Prelude.toRational
+>     t_0  = Dimensional 0 :: Quantity t a
+
+> {-
+> linearize :: forall a d ds ds' tag. (Real a, Fractional a, HMap (MulD,d) ds' ds)
+>           => (Vec ds a, Vec ds' a) -> (Quantity d (Dual tag a) -> Vec ds (Dual tag a))
+> linearize (p, v) = \t -> liftV p `elemAdd` scaleVec t (liftV v)
 
 @unlinearize@ converts a function of @x@ to a vector into a pair of
 the vector and its derivative at @x=0@. I'm not super-happy with the
 @RealFloat@ constraint but it is necessary for deriving.
 
 > unlinearize :: ( RealFloat a, HMap (DivD,d) ds ds')
->             => (forall b. RealFloat b => Quantity d b -> Vec ds b) -> (Vec ds a, Vec ds' a)
-> unlinearize f = (f t_0, diffV f t_0) where t_0 = Dimensional 0
-
+>             => (Quantity d (Dual tag a) -> Vec ds (Dual tag a)) -> (Vec ds a, Vec ds' a)
+> unlinearize f = (f' t_0', diffV f t_0) where
+>   t_0 = Dimensional 0
+>   t_0' = Dimensional 0
+>   f' t = diffV (\x -> x * f t) _1
+> -- -}
 
 Converting
 ----------
@@ -101,7 +114,7 @@ Converts a cartesian position vector into a spherical position vector.
 >     az  = atan2 y x
 
 > c2sEphem :: RealFloat a => CPosVel a -> SPosVel a
-> c2sEphem c = unlinearize (c2s . linearize c :: RealFloat b => Time b -> SPos b)
+> c2sEphem = applyLinear c2s -- unlinearize (c2s . linearize c :: RealFloat b => Time b -> SPos b)
 
 Converts a spherical position vector into a cartesian position vector.
 
@@ -114,6 +127,6 @@ Converts a spherical position vector into a cartesian position vector.
 >     z = r * cos zen
 
 > s2cEphem :: RealFloat a => SPosVel a -> CPosVel a
-> s2cEphem s = unlinearize (s2c . linearize s :: RealFloat b => Time b -> CPos b)
+> s2cEphem = applyLinear s2c -- unlinearize (s2c . linearize s :: RealFloat b => Time b -> CPos b)
 
 

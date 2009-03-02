@@ -1,25 +1,38 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
-module ForwardAD (diffV,diffNumV) where
+module ForwardAD (diffV, diffV', liftV)
+  where
 
 import Data.HList (HMap)
 import Numeric.Units.Dimensional (Dimensional (Dimensional), Quantity, Div, DOne)
 import Vector (Vec (ListVec), MulD, DivD)
-import Fad (dNumF, dRealFloatF)
+import Fad (Dual, diffUF, diffUF')
+import qualified Fad (lift)
 
 -- | If @f@ is a function of a quantity that returns a 'Vector', then
 -- @diff f@ is a function of the same type of quantity that returns
 -- the first derivative of the result.
-diffV :: (RealFloat a, HMap (DivD,d) ds ds')
-  => (forall b. RealFloat b => Quantity d b -> Vec ds b) -> Quantity d a -> Vec ds' a
-diffV f (Dimensional x) = ListVec (dRealFloatF (unvec . f . Dimensional) x)
-  where
-    unvec (ListVec xs) = xs
+diffV :: (Num a, HMap (DivD,d) ds ds')
+  => (forall tag. Quantity d (Dual tag a) -> Vec ds (Dual tag a)) -> Quantity d a -> Vec ds' a
+diffV f = snd . diffV' f
+--diffV f (Dimensional x) = ListVec (diffUF (unvec . f . Dimensional) x)
 
--- Other diffs with less stringent requirements on the type class to follow...
-diffNumV :: (Num a, Div DOne d d', HMap (MulD, d') ds ds')
-  => (forall b. Num b => Quantity d b -> Vec ds b) -> Quantity d a -> Vec ds' a
-diffNumV f (Dimensional x) = ListVec (dNumF (unvec . f . Dimensional) x)
-  where
-    unvec (ListVec xs) = xs
+diffV' :: (Num a, HMap (DivD,d) ds ds')  -- Constraint could be changed to infer d instead (or also) if desired.
+  => (forall tag. Quantity d (Dual tag a) -> Vec ds (Dual tag a)) -> Quantity d a -> (Vec ds a, Vec ds' a)
+diffV' f (Dimensional x) = (ListVec ys, ListVec ys') where (ys,ys') = diffUF' (unvec . f . Dimensional) x
+
+
+unvec (ListVec xs) = xs
+
+
+-- | Lift the elements of a vector to 'Fad.Dual's.
+liftV :: Num a => Vec ds a -> Vec ds (Dual tag a)
+liftV (ListVec xs) = ListVec (map Fad.lift xs)
+
+--lift :: Num a => Dimensional v d a -> Dimensional v d (Dual tag a)
+--lift (Dimensional x) = Dimensional (Fad.lift x)
+
+--primalV :: Num a => Vec ds (Dual tag a) -> Vec ds a
+--primalV (ListVec xs) = ListVec (fprimal xs)
+
 

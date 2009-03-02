@@ -22,15 +22,15 @@ pvs = c2sEphem pvc
 f :: Fractional a => Time a -> CPos a
 f = \t -> scaleVec t v
 
-prop_linC = pvc == pv' where
-  pv' = unlinearize (linearize pvc :: RealFloat a => Time a -> CPos a)
+--prop_linC = pvc == pv' where
+--  pv' = unlinearize (linearize pvc :: RealFloat a => Time a -> CPos a)
 
-prop_linS = pvs == pv' where
-  pv' = unlinearize (linearize pvs :: RealFloat a => Time a -> SPos a)
+--prop_linS = pvs == pv' where
+--  pv' = unlinearize (linearize pvs :: RealFloat a => Time a -> SPos a)
 
 main = do
-  quickCheck prop_linC
-  quickCheck prop_linS
+--  quickCheck prop_linC
+--  quickCheck prop_linS
   print p
   print $ s2c $ c2s p
   print $ c2s p
