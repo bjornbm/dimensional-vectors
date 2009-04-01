@@ -6,8 +6,7 @@ module ForwardAD (diffV, diffV', liftV)
 import Data.HList (HMap)
 import Numeric.Units.Dimensional (Dimensional (Dimensional), Quantity, Div, DOne)
 import Vector (Vec (ListVec), MulD, DivD)
-import Fad (Dual, diffUF, diffUF')
-import qualified Fad (lift)
+import Numeric.FAD (Dual, diffUF, diff2UF, lift)
 
 -- | If @f@ is a function of a quantity that returns a 'Vector', then
 -- @diff f@ is a function of the same type of quantity that returns
@@ -19,7 +18,7 @@ diffV f = snd . diffV' f
 
 diffV' :: (Num a, HMap (DivD,d) ds ds')  -- Constraint could be changed to infer d instead (or also) if desired.
   => (forall tag. Quantity d (Dual tag a) -> Vec ds (Dual tag a)) -> Quantity d a -> (Vec ds a, Vec ds' a)
-diffV' f (Dimensional x) = (ListVec ys, ListVec ys') where (ys,ys') = diffUF' (unvec . f . Dimensional) x
+diffV' f (Dimensional x) = (ListVec ys, ListVec ys') where (ys,ys') = diff2UF (unvec . f . Dimensional) x
 
 
 unvec (ListVec xs) = xs
@@ -27,7 +26,7 @@ unvec (ListVec xs) = xs
 
 -- | Lift the elements of a vector to 'Fad.Dual's.
 liftV :: Num a => Vec ds a -> Vec ds (Dual tag a)
-liftV (ListVec xs) = ListVec (map Fad.lift xs)
+liftV (ListVec xs) = ListVec (map lift xs)
 
 --lift :: Num a => Dimensional v d a -> Dimensional v d (Dual tag a)
 --lift (Dimensional x) = Dimensional (Fad.lift x)
