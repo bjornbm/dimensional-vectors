@@ -58,7 +58,7 @@ Spherical position.
 > zenith = vElemAt pos1
 > colatitude = zenith
 > polarAngle = zenith
-> latitude s = pi - colatitude s
+> latitude s = pi / _2 - colatitude s
 > declination = latitude
 > elevation   = latitude
 
