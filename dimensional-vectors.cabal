@@ -2,7 +2,7 @@ Name:                dimensional-vectors
 Version:             0.1
 License:             BSD3
 License-File:        LICENSE
-Copyright:           Bjorn Buckwalter 2008
+Copyright:           Bjorn Buckwalter 2008-2009
 Author:              Bjorn Buckwalter 
 Maintainer:          bjorn.buckwalter@gmail.com
 Stability:           experimental
@@ -22,8 +22,7 @@ Description:
     be readily exchangable for a faster one (e.g. GSLHaskell).
 Category:            Math
 Build-Type:          Simple
-Build-Depends:       base, dimensional, fad, HList, numeric-quest
+Build-Depends:       base, dimensional, numtype, fad, HList, numeric-quest
 Exposed-Modules:     Vector, Matrix, MyHList, ForwardAD, PosVel
 Extra-source-files:  README, LICENSE
-ghc-options:         -O
 
