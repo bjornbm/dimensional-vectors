@@ -7,6 +7,7 @@ import Numeric.Units.Dimensional.Prelude
 import Numeric.Units.Dimensional.NonSI (gee)
 import Vector
 import ForwardAD
+import PosVel
 import Test.QuickCheck
 
 myFun :: Fractional a => Time a -> Vec (DLength :*: DOne :*: DOne :*: HNil) a
@@ -39,7 +40,20 @@ prop_acc t = acc t' == diffV (diffV pos) t'
 prop_acc2 t = acc t' == diffV vel t' 
   where t' = t *~ second :: Time Double
 
+-- If the function being linearized has no dependency on time the
+-- results from applyLinear and applyLinearAt are identical.
+-- (This test was written as much to verify that applyLinearAt can be
+-- satisfactorily type checked.)
+prop_applyLinearAt t y z vx vy vz = applyLinear c2s (p,v) == applyLinearAt (const c2s) t' (p,v)
+  where
+    t' = t*~second :: Time Double
+    p = fromTuple (1*~meter,y*~meter,z*~meter)
+    v = fromTuple (mps vx, mps vy, mps vz)
+    mps = (*~(meter/second)) :: Double -> Velocity Double
+
+
 main = do
+  quickCheck prop_applyLinearAt
   quickCheck prop_helix'
   quickCheck prop_helix''
   quickCheck prop_helix''2

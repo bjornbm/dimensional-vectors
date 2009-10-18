@@ -9,12 +9,11 @@ The convention in this module is that a @C@ denotes cartesian coordinates and an
 > import qualified Prelude
 > import Vector
 > import Matrix
-> import MyHList
 > import Numeric.Units.Dimensional.Prelude
 > import Numeric.Units.Dimensional (Dimensional (Dimensional))
 > import Data.HList
-> import Numeric.FAD (Dual)
-> import ForwardAD (diffV', liftV)
+> import ForwardAD (applyLinear)
+
 
 Type synonyms for clearer documentation.
 
@@ -68,39 +67,6 @@ Spherical position.
 > rightAscension = azimuth
 > hourAngle      = azimuth
 
-
-Linearizing
------------
-@linearize@ converts a pair of a vector and its derivative into a function of time linearized about the original vector at @t=0@. In order for the function to be differetiable the numeric representation of the function cannot be limited to that of the inputs. Therefore we need to use 'fromRealFrac' to coerce the types. Hopefully the compiler is clever about optimizing these away when going to/from the same type.
-
-@applyLinear@ converts a pair of a vector and its derivative into a function of time linearized about the original vector at @t=0@. Then the function is evaluated 
-
-> applyLinear :: forall a t ds ds' ds2 ds2' ts. (
->                Real a, Fractional a,
->                HMap (MulD,t) ds' ds,               -- Used in linearization.
->                HMap (DivD,t) ds2 ds2',             -- Used in differentiation.
->                HZipWith DivD ds ds' ts, Homo ts t  -- Necessary to infer t (the dimension w r t which we are differentiating).
->           ) => (forall tag. Vec ds (Dual tag a) -> Vec ds2 (Dual tag a)) -> (Vec ds a, Vec ds' a) -> (Vec ds2 a, Vec ds2' a)
-> applyLinear f (p,v) = diffV' (\t -> f (liftV p `elemAdd` scaleVec t (liftV v))) t_0
->   where
->     t_0  = Dimensional 0 :: Quantity t a
-
-> {-
-> linearize :: forall a d ds ds' tag. (Real a, Fractional a, HMap (MulD,d) ds' ds)
->           => (Vec ds a, Vec ds' a) -> (Quantity d (Dual tag a) -> Vec ds (Dual tag a))
-> linearize (p, v) = \t -> liftV p `elemAdd` scaleVec t (liftV v)
-
-@unlinearize@ converts a function of @x@ to a vector into a pair of
-the vector and its derivative at @x=0@. I'm not super-happy with the
-@RealFloat@ constraint but it is necessary for deriving.
-
-> unlinearize :: ( RealFloat a, HMap (DivD,d) ds ds')
->             => (Quantity d (Dual tag a) -> Vec ds (Dual tag a)) -> (Vec ds a, Vec ds' a)
-> unlinearize f = (f' t_0', diffV f t_0) where
->   t_0 = Dimensional 0
->   t_0' = Dimensional 0
->   f' t = diffV (\x -> x * f t) _1
-> -- -}
 
 Converting
 ----------
