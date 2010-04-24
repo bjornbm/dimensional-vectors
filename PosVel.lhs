@@ -17,9 +17,11 @@ The convention in this module is that a @C@ denotes cartesian coordinates and an
 
 Type synonyms for clearer documentation.
 
-> type DRadius  = DLength; type Radius  = Length
-> type DZenith  = DPlaneAngle ; type Zenith  = Angle
-> type DAzimuth = DPlaneAngle ; type Azimuth = Angle
+> type DRadius = DLength; type Radius = Length
+> -- | Angle from Z-axis.
+> type DZenith = DPlaneAngle; type Zenith = Angle
+> -- | Angle from X-axis towards Y-axis (positive about Z).
+> type DRightAscension = DPlaneAngle; type RightAscension = Angle
 
 
 Some type synonyms for convenience.
@@ -27,7 +29,7 @@ Some type synonyms for convenience.
 > type Vec3 d1 d2 d3 = Vec (d1 :*: d2 :*: d3 :*: HNil)
 > type CPos = Vec3 DLength DLength DLength  -- ^ x y z
 > type CVel = Vec3 DVelocity DVelocity DVelocity
-> type SPos = Vec3 DRadius DZenith DAzimuth
+> type SPos = Vec3 DRadius DZenith DRightAscension
 > type SVel = Vec3 DVelocity DAngularVelocity DAngularVelocity
 
 Data type combining position and velocity into a state vector (minus epoch).
@@ -55,17 +57,15 @@ Spherical position.
 
 > zenith :: SPos a -> Zenith a
 > zenith = vElemAt pos1
-> colatitude = zenith
-> polarAngle = zenith
-> latitude s = pi / _2 - colatitude s
+> colatitude  = zenith
+> polarAngle  = zenith
+> latitude s  = pi / _2 - colatitude s
 > declination = latitude
-> elevation   = latitude
 
-> azimuth :: SPos a -> Azimuth a
-> azimuth = vElemAt pos2
-> longitude      = azimuth
-> rightAscension = azimuth
-> hourAngle      = azimuth
+> rightAscension :: SPos a -> RightAscension a
+> rightAscension = vElemAt pos2
+> longitude      = rightAscension
+> hourAngle      = rightAscension
 
 
 Converting
