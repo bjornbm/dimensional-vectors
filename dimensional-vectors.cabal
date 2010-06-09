@@ -22,7 +22,13 @@ Description:
     be readily exchangable for a faster one (e.g. GSLHaskell).
 Category:            Math
 Build-Type:          Simple
-Build-Depends:       base, dimensional, numtype, fad, HList >= 0.2.1, numeric-quest
+Build-Depends:       base < 5, 
+                     time < 1.3,
+                     dimensional < 1.1,
+                     numtype < 1.1,
+                     HList >= 0.2.1 && < 0.3,
+                     numeric-quest < 0.2,
+                     fad < 0.34
 Exposed-Modules:     Vector, Matrix, MyHList, ForwardAD, PosVel
 Extra-source-files:  README, LICENSE
 
