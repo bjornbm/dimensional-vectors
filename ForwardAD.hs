@@ -9,25 +9,27 @@ import Data.HList (HMap)
 import MyHList (HZipWith)
 import Numeric.Units.Dimensional (Dimensional (Dimensional), Quantity, Div, DOne)
 import Vector (Vec (ListVec), MulD, DivD, Homo, elemAdd, scaleVec)
-import Numeric.FAD (Dual, diffUF, diff2UF)
-import qualified Numeric.FAD as F (lift)
+import Numeric.AD (AD, diffF, diffF', Mode)
+import qualified Numeric.AD as F (lift)
 
 
 -- | If @f@ is a function of a quantity that returns a 'Vector', then
 -- @diff f@ is a function of the same type of quantity that returns
 -- the first derivative of the result.
 diffV :: (Num a, HMap (DivD,d) ds ds')
-  => (forall tag. Quantity d (Dual tag a) -> Vec ds (Dual tag a)) -> Quantity d a -> Vec ds' a
+  => (forall tag. Mode tag => Quantity d (AD tag a) -> Vec ds (AD tag a)) -> Quantity d a -> Vec ds' a
 diffV f = snd . diffV' f
 
 
+unfzip as = (fmap fst as, fmap snd as)
+
 -- | Like 'diffV' but returns a pair of the result and its first derivative.
 diffV' :: (Num a, HMap (DivD,d) ds ds')  -- Constraint could be changed to infer d instead (or also) if desired.
-  => (forall tag. Quantity d (Dual tag a) -> Vec ds (Dual tag a))
+  => (forall tag. Mode tag => Quantity d (AD tag a) -> Vec ds (AD tag a))
   -> Quantity d a -> (Vec ds a, Vec ds' a)
 diffV' f (Dimensional x) = (ListVec ys, ListVec ys')
   where
-    (ys,ys') = diff2UF (unvec . f . Dimensional) x
+    (ys,ys') = unfzip $ diffF' (unvec . f . Dimensional) x
     unvec (ListVec xs) = xs
 
 
@@ -44,7 +46,7 @@ applyLinear :: forall a t ds ds' ds2 ds2' ts. (
                HMap (MulD,t) ds' ds,               -- Used in linearization.
                HMap (DivD,t) ds2 ds2',             -- Used in differentiation.
                HZipWith DivD ds ds' ts, Homo ts t  -- Necessary to infer t (the dimension w r t which we are differentiating).
-          ) => (forall tag. Vec ds (Dual tag a) -> Vec ds2 (Dual tag a)) -> (Vec ds a, Vec ds' a) -> (Vec ds2 a, Vec ds2' a)
+          ) => (forall tag. Mode tag => Vec ds (AD tag a) -> Vec ds2 (AD tag a)) -> (Vec ds a, Vec ds' a) -> (Vec ds2 a, Vec ds2' a)
 applyLinear f (p,v) = diffV' (\t -> f (liftV p `elemAdd` scaleVec t (liftV v))) t_0
   where
     t_0  = Dimensional 0 :: Quantity t a
@@ -57,7 +59,7 @@ applyLinearAt :: forall a t ds ds' ds2 ds2' ts. (
                HMap (MulD,t) ds' ds,               -- Used in linearization.
                HMap (DivD,t) ds2 ds2',             -- Used in differentiation.
                HZipWith DivD ds ds' ts, Homo ts t  -- Necessary to infer t (the dimension w r t which we are differentiating).
-          ) => (forall tag. Quantity t (Dual tag a) -> Vec ds (Dual tag a) -> Vec ds2 (Dual tag a))
+          ) => (forall tag. Mode tag => Quantity t (AD tag a) -> Vec ds (AD tag a) -> Vec ds2 (AD tag a))
             -> Quantity t a -> (Vec ds a, Vec ds' a) -> (Vec ds2 a, Vec ds2' a)
 applyLinearAt f t (p,v) = diffV' (\t' -> f t' (liftV p `elemAdd` scaleVec (t' - lift t) (liftV v))) t
 
@@ -65,15 +67,13 @@ applyLinearAt f t (p,v) = diffV' (\t' -> f t' (liftV p `elemAdd` scaleVec (t' - 
 -- Lifting
 -- -------
 
--- | Lift the elements of a vector to 'Fad.Dual's.
-liftV :: Num a => Vec ds a -> Vec ds (Dual tag a)
+-- | Lift the elements of a vector to 'AD.AD's.
+liftV :: (Mode tag, Num a) => Vec ds a -> Vec ds (AD tag a)
 liftV (ListVec xs) = ListVec (map F.lift xs)
 
 -- | Lift a Dimensional.
-lift :: Num a => Dimensional v d a -> Dimensional v d (Dual tag a)
+lift :: (Mode tag, Num a) => Dimensional v d a -> Dimensional v d (AD tag a)
 lift (Dimensional x) = Dimensional (F.lift x)
 
---primalV :: Num a => Vec ds (Dual tag a) -> Vec ds a
+--primalV :: Num a => Vec ds (AD tag a) -> Vec ds a
 --primalV (ListVec xs) = ListVec (fprimal xs)
-
-
