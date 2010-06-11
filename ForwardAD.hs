@@ -9,8 +9,8 @@ import Data.HList (HMap)
 import MyHList (HZipWith)
 import Numeric.Units.Dimensional (Dimensional (Dimensional), Quantity, Div, DOne)
 import Vector (Vec (ListVec), MulD, DivD, Homo, elemAdd, scaleVec)
-import Numeric.AD (AD, diffF, diffF', Mode)
-import qualified Numeric.AD as F (lift)
+import Numeric.AD.Mode.Forward (AD, diffF, diffF', Mode)
+import qualified Numeric.AD.Mode.Forward as AD (lift)
 
 
 -- | If @f@ is a function of a quantity that returns a 'Vector', then
@@ -69,11 +69,11 @@ applyLinearAt f t (p,v) = diffV' (\t' -> f t' (liftV p `elemAdd` scaleVec (t' - 
 
 -- | Lift the elements of a vector to 'AD.AD's.
 liftV :: (Mode tag, Num a) => Vec ds a -> Vec ds (AD tag a)
-liftV (ListVec xs) = ListVec (map F.lift xs)
+liftV (ListVec xs) = ListVec (map AD.lift xs)
 
 -- | Lift a Dimensional.
 lift :: (Mode tag, Num a) => Dimensional v d a -> Dimensional v d (AD tag a)
-lift (Dimensional x) = Dimensional (F.lift x)
+lift (Dimensional x) = Dimensional (AD.lift x)
 
 --primalV :: Num a => Vec ds (AD tag a) -> Vec ds a
 --primalV (ListVec xs) = ListVec (fprimal xs)
