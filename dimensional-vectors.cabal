@@ -1,5 +1,5 @@
 Name:                dimensional-vectors
-Version:             0.3
+Version:             0.4
 License:             BSD3
 License-File:        LICENSE
 Copyright:           Bjorn Buckwalter 2008-2010
@@ -27,6 +27,6 @@ Build-Depends:       base < 5,
                      HList >= 0.2.1 && < 0.3,
                      numeric-quest < 0.2,
                      ad >= 0.44.4 && < 1.1
-Exposed-Modules:     Vector, Matrix, MyHList, AD, ForwardAD, PosVel
+Exposed-Modules:     Vector, Matrix, MyHList, AD, VectorAD, PosVel
 Extra-source-files:  README, LICENSE
 
