@@ -6,7 +6,7 @@ import Data.HList
 import Numeric.Units.Dimensional.Prelude
 import Numeric.Units.Dimensional.NonSI (gee)
 import Vector
-import ForwardAD
+import VectorAD
 import PosVel
 import Test.QuickCheck
 

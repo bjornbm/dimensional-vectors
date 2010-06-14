@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
-module ForwardAD where
+module VectorAD where
 
 import qualified Prelude
 import Numeric.Units.Dimensional.Prelude
@@ -9,8 +9,9 @@ import Data.HList (HMap)
 import MyHList (HZipWith)
 import Numeric.Units.Dimensional (Dimensional (Dimensional), Quantity, Div, DOne)
 import Vector (Vec (ListVec), MulD, DivD, Homo, elemAdd, scaleVec)
-import Numeric.AD.Mode.Forward (AD, diffF, diffF', Mode)
-import qualified Numeric.AD.Mode.Forward as AD (lift)
+import Numeric.AD (AD, diffF, diffF', Mode)
+import qualified Numeric.AD (lift)
+import AD
 
 
 -- | If @f@ is a function of a quantity that returns a 'Vector', then
@@ -33,6 +34,10 @@ diffV' f (Dimensional x) = (ListVec ys, ListVec ys')
     unvec (ListVec xs) = xs
 
 
+--primalV :: Num a => Vec ds (AD tag a) -> Vec ds a
+--primalV (ListVec xs) = ListVec (fprimal xs)
+
+
 -- Linearizing
 -- -----------
 
@@ -47,7 +52,7 @@ applyLinear :: forall a t ds ds' ds2 ds2' ts. (
                HMap (DivD,t) ds2 ds2',             -- Used in differentiation.
                HZipWith DivD ds ds' ts, Homo ts t  -- Necessary to infer t (the dimension w r t which we are differentiating).
           ) => (forall tag. Mode tag => Vec ds (AD tag a) -> Vec ds2 (AD tag a)) -> (Vec ds a, Vec ds' a) -> (Vec ds2 a, Vec ds2' a)
-applyLinear f (p,v) = diffV' (\t -> f (liftV p `elemAdd` scaleVec t (liftV v))) t_0
+applyLinear f (p,v) = diffV' (\t -> f (lift p `elemAdd` scaleVec t (lift v))) t_0
   where
     t_0  = Dimensional 0 :: Quantity t a
 
@@ -61,19 +66,11 @@ applyLinearAt :: forall a t ds ds' ds2 ds2' ts. (
                HZipWith DivD ds ds' ts, Homo ts t  -- Necessary to infer t (the dimension w r t which we are differentiating).
           ) => (forall tag. Mode tag => Quantity t (AD tag a) -> Vec ds (AD tag a) -> Vec ds2 (AD tag a))
             -> Quantity t a -> (Vec ds a, Vec ds' a) -> (Vec ds2 a, Vec ds2' a)
-applyLinearAt f t (p,v) = diffV' (\t' -> f t' (liftV p `elemAdd` scaleVec (t' - lift t) (liftV v))) t
+applyLinearAt f t (p,v) = diffV' (\t' -> f t' (lift p `elemAdd` scaleVec (t' - lift t) (lift v))) t
 
 
 -- Lifting
 -- -------
 
 -- | Lift the elements of a vector to 'AD.AD's.
-liftV :: (Mode tag, Num a) => Vec ds a -> Vec ds (AD tag a)
-liftV (ListVec xs) = ListVec (map AD.lift xs)
-
--- | Lift a Dimensional.
-lift :: (Mode tag, Num a) => Dimensional v d a -> Dimensional v d (AD tag a)
-lift (Dimensional x) = Dimensional (AD.lift x)
-
---primalV :: Num a => Vec ds (AD tag a) -> Vec ds a
---primalV (ListVec xs) = ListVec (fprimal xs)
+instance Lift (Vec ds) where lift (ListVec xs) = ListVec (map Numeric.AD.lift xs)

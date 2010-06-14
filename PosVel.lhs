@@ -12,7 +12,7 @@ The convention in this module is that a @C@ denotes cartesian coordinates and an
 > import Numeric.Units.Dimensional.Prelude
 > import Numeric.Units.Dimensional (Dimensional (Dimensional))
 > import Data.HList
-> import ForwardAD (applyLinear)
+> import VectorAD (applyLinear)
 
 
 Type synonyms for clearer documentation.

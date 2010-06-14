@@ -27,6 +27,6 @@ Build-Depends:       base < 5,
                      HList >= 0.2.1 && < 0.3,
                      numeric-quest < 0.2,
                      ad >= 0.44.4 && < 1.1
-Exposed-Modules:     Vector, Matrix, MyHList, ForwardAD, PosVel
+Exposed-Modules:     Vector, Matrix, MyHList, AD, ForwardAD, PosVel
 Extra-source-files:  README, LICENSE
 
