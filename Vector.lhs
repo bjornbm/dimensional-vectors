@@ -191,19 +191,30 @@ Elementwise division of vectors
 
 Scaling of vectors
 ==================
-Should I change the order of arguments here so the vector always comes first? Last?
+Should I change the order of arguments here so the vector always
+comes first? Last?
 
 > instance Mul d1 d2 d3 => Apply (MulD, d1) d2  d3 where apply _ _ = undefined
 > instance Div d1 d2 d3 => Apply (DivD, d2) d1  d3 where apply _ _ = undefined
 
-| Scale a vector by multiplication. Each element of the vector is multiplied by the first argument.
+| Scale a vector by multiplication. Each element of the vector is
+multiplied by the first argument.
 
-> scaleVec :: (HMap (MulD, d) ds1 ds2, Num a) => Quantity d a -> Vec ds1 a -> Vec ds2 a
+> scaleVec :: (HMap (MulD, d) ds1 ds2, Num a)
+>          => Quantity d a -> Vec ds1 a -> Vec ds2 a
 > scaleVec (Dimensional x) (ListVec xs) = ListVec (map (x P.*) xs)
 
-| Scale a vector by division. Each element of the vector is divided by the second argument.
+| Scale a vector by a dimensionless quantity. This avoids the trivial
+constraint @HMap (MulD, DOne) ds ds@ for this common case.
 
-> scaleVec' :: (HMap (DivD,d) ds1 ds2, Fractional a) => Vec ds1 a -> Quantity d a -> Vec ds2 a
+> scaleVec1 :: Num a => Dimensionless a -> Vec ds a -> Vec ds a
+> scaleVec1 (Dimensional x) = vMap (x P.*)
+
+| Scale a vector by division. Each element of the vector is divided
+by the second argument (note the reversed argument order).
+
+> scaleVec' :: (HMap (DivD,d) ds1 ds2, Fractional a)
+>           => Vec ds1 a -> Quantity d a -> Vec ds2 a
 > scaleVec' (ListVec xs) (Dimensional x) = ListVec (map (P./ x) xs)
 
 
