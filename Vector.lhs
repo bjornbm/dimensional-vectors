@@ -97,7 +97,7 @@ This class allows converting a vector to an equivalent HList.
 >   where toHList v = HCons (vHead v) (toHList $ vTail v)
 
 
-> vBuild = fromHList . hEnd . hBuild
+> -- vBuild = fromHList . hEnd . hBuild
 
 
 Querying
