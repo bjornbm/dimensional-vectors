@@ -25,13 +25,14 @@ instance (HZip l1 l2 l', HMap f l' l3) => HZipWith f l1 l2 l3
 -- Use with e.g. @HMap@ on a list of stuff to create an empty list.
 instance Apply HNil a HNil where apply _ _ = HNil
 
--- | The @Apply Wrap@ instance is used to convert something into a singleton list.
-data Wrap; instance Apply Wrap a (HCons a HNil) where apply _ e = HCons e HNil
-
 -- | The @Apply Cons@ instance converts a pair into an HList. The second element of
 -- the pair must be an HList.
 data Cons = Cons
 instance HList l => Apply Cons (e, l) (e:*:l) where apply _ = uncurry HCons
+instance HList l => Apply (Cons,l) e (e:*:l) where apply (_,l) e = HCons e l
+
+-- | The Apply instance producing a singleton HList.
+type Sing = (Cons,HNil)
 
 -- | @Apply ConsEach@ takes a pair of a HList (the heads) and a HList of HLists
 -- (the tails). The number of heads must be identical to the number of tails.

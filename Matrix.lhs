@@ -65,7 +65,7 @@ Matrix construction
 
 | Convert ("promote") a vector to a column matrix.
 
-> colMatrix :: HMap Wrap ds vs => Vec ds a -> Mat vs a
+> colMatrix :: HMap Sing ds vs => Vec ds a -> Mat vs a
 > colMatrix (ListVec xs) = ListMat (map (:[]) xs)
 
 The @Cols vs n@ constraint above shouldn't be strictly necessary assuming all
