@@ -53,14 +53,14 @@ that a matrix is well-formed.
 
 > class Cols vs n | vs -> n
 > instance Cols HNil n
-> instance (HLength v n, Cols vs n) => Cols (HCons v vs) n
+> instance (HLength v n, Cols vs n) => Cols (v:*:vs) n
 
 
 Matrix construction
 ===================
 | Convert ("promote") a vector to a row matrix.
 
-> rowMatrix :: Vec ds a -> Mat (HCons ds HNil) a
+> rowMatrix :: Vec ds a -> Mat (ds:*:HNil) a
 > rowMatrix (ListVec xs) = ListMat [xs]
 
 | Convert ("promote") a vector to a column matrix.
@@ -74,7 +74,7 @@ will at least prevent building upon a malformed matrix.
 
 | Prepends a row to a matrix.
 
-> consRow :: (HLength xs n, Cols vs n) => Vec xs a -> Mat vs a -> Mat (HCons xs vs) a
+> consRow :: (HLength xs n, Cols vs n) => Vec xs a -> Mat vs a -> Mat (xs:*:vs) a
 > consRow (ListVec xs) (ListMat vs) = ListMat (xs:vs)
 
 > consCol :: Apply ConsEach (xs, vs) vs' => Vec xs a -> Mat vs a -> Mat vs' a
@@ -86,7 +86,7 @@ each representing one row in the matrix.
 > class ToRowHLists x l | x -> l where toRowHLists :: x -> l
 > instance ToRowHLists (Mat HNil a) HNil where toRowHLists _ = HNil
 > instance (ToHList (Vec v a) l, ToRowHLists (Mat vs a) ls)
->   => ToRowHLists (Mat (HCons v vs) a) (HCons l ls)
+>   => ToRowHLists (Mat (v:*:vs) a) (l:*:ls)
 >   where toRowHLists m = HCons (toHList (rowHead m)) (toRowHLists (rowTail m))
 
 This class allows converting an HList of HLists to the equivalent matrix,
@@ -97,7 +97,7 @@ of empty matrices.
 > class FromRowHLists l x | l -> x where fromRowHLists :: l -> x
 > instance FromRowHLists HNil (Mat HNil a) where fromRowHLists _ = ListMat []
 > instance (FromHList l (Vec v a), FromRowHLists ls (Mat vs a), Cols vs n, HLength v n)
->   => FromRowHLists (HCons l ls) (Mat (HCons v vs) a)
+>   => FromRowHLists (l:*:ls) (Mat (v:*:vs) a)
 >   where fromRowHLists (HCons l ls) = consRow (fromHList l) (fromRowHLists ls)
 
 
@@ -105,14 +105,14 @@ Head and tail
 -------------
 | Return the first row of the matrix.
 
-> rowHead :: Mat (HCons v vs) a -> Vec v a
+> rowHead :: Mat (v:*:vs) a -> Vec v a
 > rowHead (ListMat vs) = ListVec (head vs)
 
 | Drop the first row of the matrix.
 TODO: The @HNil@ instance should be removed -- we do not want to allow creation
 of empty matrices.
 
-> rowTail :: Mat (HCons v vs) a -> Mat vs a
+> rowTail :: Mat (v:*:vs) a -> Mat vs a
 > rowTail (ListMat vs) = ListMat (tail vs)
 
 
@@ -125,7 +125,7 @@ TODO: @transpose mEmpty@ crashes!
 >   transpose :: Mat vs a -> Mat vs' a
 >   transpose (ListMat []) = ListMat []
 >   transpose (ListMat vs) = ListMat (O.transposed vs)
-> instance (HHead m v, HMap MkNil v v', HFoldr ConsEach v' m m') => Transpose m m'
+> instance (HHead m v, HMap HNil v v', HFoldr ConsEach v' m m') => Transpose m m'
 
 
 Matrix times vector
@@ -185,12 +185,11 @@ Rotation matrices (cartesian)
 -----------------------------
 Convenience type for homogeneous 3x3 matrices.
 
-> type Homo33 d = Mat (HCons (d :*: d :*: d :*: HNil)
->                     (HCons (d :*: d :*: d :*: HNil)
->                     (HCons (d :*: d :*: d :*: HNil)
->                     HNil)))
+> type Homo33 d = Mat ((d:*:d:*.d) :*:
+>                      (d:*:d:*.d) :*.
+>                      (d:*:d:*.d))
 
-> type Homo3 d = Vec (d :*: d :*: d :*: HNil)
+> type Homo3 d = Vec (d:*:d:*.d)
 
 > x,y,z :: Num a => Homo3 DOne a
 > x = vCons _1 $ vCons _0 $ vSing _0

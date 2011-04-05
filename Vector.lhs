@@ -59,11 +59,11 @@ We implement a custom @Show@ instance.
 > data ShowElem = ShowElem
 > instance Show a => Apply ShowElem a String where apply _ = show
 
-> instance (ToHList (Vec ds a) l, HMapOut ShowElem l String) => Show (Vec ds a) where
->   show = (\s -> "< " ++ s ++ " >")
->        . intercalate ", "
->        . hMapOut ShowElem
->        . toHList
+> instance (ToHList (Vec ds a) l, HMapOut ShowElem l String) => Show (Vec ds a)
+>   where show = (\s -> "< " ++ s ++ " >")
+>              . intercalate ", "
+>              . hMapOut ShowElem
+>              . toHList
 
 
 Construction
@@ -72,12 +72,12 @@ Vectors can be constructed using 'vCons' and 'vSing' or 'fromHList'.
 
 | Create a singleton vector.
 
-> vSing :: Quantity d a -> Vec (HCons d HNil) a
+> vSing :: Quantity d a -> Vec (d:*:HNil) a
 > vSing (Dimensional x) = ListVec [x]
 
 | Prepend an element to the vector.
 
-> vCons :: Quantity d a -> Vec ds a -> Vec (HCons d ds) a
+> vCons :: Quantity d a -> Vec ds a -> Vec (d:*:ds) a
 > vCons (Dimensional x) (ListVec xs) = ListVec (x:xs)
 
 This class allows converting a HList to the equivalent vector.
@@ -86,39 +86,38 @@ of empty vectors.
 
 > class FromHList l x | l -> x where fromHList :: l -> x
 > instance FromHList HNil (Vec HNil a) where fromHList _ = ListVec []
-> instance FromHList l (Vec ds a) => FromHList (HCons (Quantity d a) l) (Vec (HCons d ds) a)
+> instance FromHList l (Vec ds a) => FromHList (Quantity d a:*:l) (Vec (d:*:ds) a)
 >   where fromHList (HCons x l) = vCons x (fromHList l)
 
 This class allows converting a vector to an equivalent HList.
 
 > class ToHList x l | x -> l where toHList :: x -> l
 > instance ToHList (Vec HNil a) HNil where toHList _ = HNil
-> instance ToHList (Vec ds a) l => ToHList (Vec (HCons d ds) a) (HCons (Quantity d a) l)
+> instance ToHList (Vec ds a) l => ToHList (Vec (d:*:ds) a) (Quantity d a:*:l)
 >   where toHList v = HCons (vHead v) (toHList $ vTail v)
+
+
+> vBuild = fromHList . hEnd . hBuild
 
 
 Querying
 --------
 | Return the first element of the vector.
 
-> vHead :: Vec (HCons d ds) a -> Quantity d a
+> vHead :: Vec (d:*:ds) a -> Quantity d a
 > vHead (ListVec xs) = Dimensional (head xs)
 
 | Drop the first element of the vector.
 TODO: The @HNil@ instance should be removed -- we do not want to allow creation
 of empty vectors.
 
-> vTail :: Vec (HCons d ds) a -> Vec ds a
+> vTail :: Vec (d:*:ds) a -> Vec ds a
 > vTail (ListVec xs) = ListVec (tail xs)
-
-| Unwrap a singular vector. (Use 'vHead' instead?)
-
-> --fromSing :: Vec (HCons d HNil) a -> Quantity d a
-> --fromSing (ListVec [x]) = Dimensional x
 
 | @vElem n vec@ returns the @n@:th element of @vec@. The index @n@ is zero-based. I could chose use an HNat for indexing instead of a NumType. It would simplify the type signatures but users are more likely to already have NumTypes in scope than HNats.
 
-> vElemAt :: (HNatNumType n' n, HLookupByHNat n' ds d) => n -> Vec ds a -> Quantity d a
+> vElemAt :: (HNatNumType n' n, HLookupByHNat n' ds d)
+>         => n -> Vec ds a -> Quantity d a
 > vElemAt n (ListVec xs) = Dimensional (xs!!toNum n)
 
 
@@ -131,10 +130,13 @@ dimensions of its element.
 >   -- | Converts a homogeneous vector to a list.
 >   toList :: Vec ds a -> [Quantity d a]
 >   toList (ListVec xs) = map Dimensional xs
-> --instance Homo HNil d
-> --instance Homo ds d => Homo (HCons d ds) d
-> instance Homo (HCons d HNil) d
-> instance Homo (HCons d ds) d => Homo (HCons d (HCons d ds)) d
+> instance Homo (d:*:HNil) d
+> instance Homo (d:*:ds) d => Homo (d:*:(d:*:ds)) d
+
+The above instances ensure that the vector has at least one element. An optional implementation would be to use the below instances without this guarantee.
+
+  instance Homo HNil d
+  instance Homo ds d => Homo (HCons d ds) d
 
 
 Utility functions (do not export!)
@@ -174,7 +176,8 @@ Elementwise multiplication of vectors
 
 | Multiplies each element i of the first argument vector by the corresponding element of the second argument.
 
-> elemMul :: (HZipWith MulD ds1 ds2 ds3, Num a) => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
+> elemMul :: (HZipWith MulD ds1 ds2 ds3, Num a)
+>         => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
 > elemMul = vZipWith (P.*)
 
 Elementwise division of vectors
@@ -185,7 +188,8 @@ Elementwise division of vectors
 
 | Divides each element i of the first argument vector by the corresponding element of the second argument.
 
-> elemDiv :: (HZipWith DivD ds1 ds2 ds3, Fractional a) => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
+> elemDiv :: (HZipWith DivD ds1 ds2 ds3, Fractional a)
+>         => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
 > elemDiv = vZipWith (P./)
 
 
@@ -246,9 +250,9 @@ instances...
 >     , a P.* e P.- d P.* b
 >     ]
 > instance (Mul b f g, Mul e c g, Mul c d h, Mul f a h, Mul a e i, Mul d b i)
->   => CrossProduct (a :*: b :*: c :*: HNil)
->                   (d :*: e :*: f :*: HNil)
->                   (g :*: h :*: i :*: HNil)
+>   => CrossProduct (a:*:b:*.c)
+>                   (d:*:e:*.f)
+>                   (g:*:h:*.i)
 
 
 Miscellaneous
@@ -260,7 +264,8 @@ Miscellaneous
 
 | Compute the vector norm.
 
-> vNorm :: (DotProduct ds ds d, Root d Pos2 d', RealFloat a) => Vec ds a -> Quantity d' a
+> vNorm :: (DotProduct ds ds d, Root d Pos2 d', RealFloat a)
+>       => Vec ds a -> Quantity d' a
 > vNorm v = sqrt (v `dotProduct` v)
 
 | Normalize a vector. The vector must be homogeneous.
@@ -282,12 +287,12 @@ advantage of the syntactic sugar tuples enjoy.
 syntactic sugar loses its value if the vectors get to large as it is
 impractical to deal with them any way other than programmatically.
 
-> instance VTuple (Vec (d1 :*: d2 :*: HNil) a) (Quantity d1 a, Quantity d2 a) where
+> instance VTuple (Vec (d1:*.d2) a) (Quantity d1 a, Quantity d2 a) where
 >   toTuple v = (vElemAt zero v, vElemAt pos1 v)
 >   fromTuple (x,y) = vCons x $ vSing y
 
-> instance VTuple (Vec     (d1 :*:         d2 :*:         d3 :*: HNil) a) 
->                 (Quantity d1 a, Quantity d2 a, Quantity d3 a) where
+> instance VTuple (Vec (d1:*:d2:*.d3) a) 
+>                 (Quantity d1 a, Quantity d2 a, Quantity d3  a) where
 >   toTuple v = (vElemAt zero v, vElemAt pos1 v, vElemAt pos2 v)
 >   fromTuple (x,y,z) = vCons x $ vCons y $ vSing z
 
