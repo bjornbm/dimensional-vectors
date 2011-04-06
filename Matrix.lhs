@@ -42,18 +42,29 @@ A custom @show@ instance for debugging purposes.
 
 Rows and colums
 ---------------
-Class for constraining the number of rows in a matrix. Does not ensure that the
-matrix is wellformed.
+| Class constraining the number of rows in a matrix. No guarantees
+are provided for wellformedness (i.e. all rows of equal length).
 
-> --class Rows vs n | vs -> n
-> --instance HLength vs n => Rows vs n
+> class Rows vs n | vs -> n
+> instance HLength vs n => Rows vs n  -- Trivial.
 
-Class for constraining the number of columns in a matrix. In particular ensures
-that a matrix is well-formed.
+Class constraining the number of columns in a matrix. In particular ensures
+that all matrix is well-formed (all colums are of equal length).
 
 > class Cols vs n | vs -> n
 > instance Cols HNil n  -- I'm surprised this is consistent with above FD!
 > instance (HLength v n, Cols vs n) => Cols (v:*:vs) n
+
+| Class ensuring a matrix is wellformed. A matrix is well-formed if it
+has at least one non-empty row and all of its rows are of equal length.
+
+> class Wellformed vs
+> instance Cols v (HSucc n) => Wellformed v
+
+| Class constraining the shape of a matrix to a square.
+
+> class Square vs n | vs -> n
+> instance (Cols vs n, Rows vs n) => Square vs n
 
 
 Matrix Construction and Deconstruction
@@ -68,13 +79,9 @@ Matrix Construction and Deconstruction
 > colMatrix :: HMap Sing ds vs => Vec ds a -> Mat vs a
 > colMatrix (ListVec xs) = ListMat (map (:[]) xs)
 
-The @Cols vs n@ constraint above shouldn't be strictly necessary assuming all
-matrices are produced using 'consRow' but I believe it does no harm either and
-will at least prevent building upon a malformed matrix.
-
 | Prepends a row to a matrix.
 
-> consRow :: Cols (v:*:vs) n => Vec v a -> Mat vs a -> Mat (v:*:vs) a
+> consRow :: Wellformed (v:*:vs) => Vec v a -> Mat vs a -> Mat (v:*:vs) a
 > consRow (ListVec v) (ListMat vs) = ListMat (v:vs)
 
 > consCol :: Apply ConsEach (xs, vs) vs' => Vec xs a -> Mat vs a -> Mat vs' a
@@ -113,7 +120,7 @@ of empty matrices.
 >     toRowHLists   _ = HNil
 >     fromRowHLists _ = ListMat []
 
-> instance (VHList (Vec v a) l, RowHLists (Mat vs a) ls, Cols (v:*:vs) n)
+> instance (VHList (Vec v a) l, RowHLists (Mat vs a) ls, Wellformed (v:*:vs))
 >       => RowHLists (Mat (v:*:vs) a) (l:*:ls)
 >   where
 >     toRowHLists m = HCons (toHList (rowHead m)) (toRowHLists (rowTail m))
@@ -181,8 +188,22 @@ Addition and subtraction of matrices.
 > mElemSub :: Num a => Mat vs a -> Mat vs a -> Mat vs a
 > mElemSub (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.-)) vs1 vs2)
 
+| The identity matrix. The size of the matrix is determined by its type.
 
-> ex (ListMat vs) = vs
+> i :: forall vs n a. (Square vs n, HNat2Integral n, MHomo vs DOne, Num a) => Mat vs a
+> i = ListMat $ O.unit_matrix $ hNat2Integral (undefined::n)
+
+> --ex (ListMat vs) = vs
+
+
+Homogeneous Matrices
+====================
+| Class constraining to homogeneous matrices. A matrix is
+homogeneous if all elements have the same physical dimensions.
+
+> class MHomo vs d | vs -> d
+> instance MHomo (HNil) d
+> instance (Homo v d, MHomo vs d) => MHomo (v:*:vs) d
 
 
 Rotation matrices (cartesian)
