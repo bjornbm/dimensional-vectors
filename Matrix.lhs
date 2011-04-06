@@ -85,7 +85,7 @@ each representing one row in the matrix.
 
 > class ToRowHLists x l | x -> l where toRowHLists :: x -> l
 > instance ToRowHLists (Mat HNil a) HNil where toRowHLists _ = HNil
-> instance (ToHList (Vec v a) l, ToRowHLists (Mat vs a) ls)
+> instance (VHList (Vec v a) l, ToRowHLists (Mat vs a) ls)
 >   => ToRowHLists (Mat (v:*:vs) a) (l:*:ls)
 >   where toRowHLists m = HCons (toHList (rowHead m)) (toRowHLists (rowTail m))
 
@@ -96,7 +96,7 @@ of empty matrices.
 
 > class FromRowHLists l x | l -> x where fromRowHLists :: l -> x
 > instance FromRowHLists HNil (Mat HNil a) where fromRowHLists _ = ListMat []
-> instance (FromHList l (Vec v a), FromRowHLists ls (Mat vs a), Cols vs n, HLength v n)
+> instance (VHList (Vec v a) l, FromRowHLists ls (Mat vs a), Cols vs n, HLength v n)
 >   => FromRowHLists (l:*:ls) (Mat (v:*:vs) a)
 >   where fromRowHLists (HCons l ls) = consRow (fromHList l) (fromRowHLists ls)
 

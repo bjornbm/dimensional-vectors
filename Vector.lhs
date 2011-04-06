@@ -59,7 +59,7 @@ We implement a custom @Show@ instance.
 > data ShowElem = ShowElem
 > instance Show a => Apply ShowElem a String where apply _ = show
 
-> instance (ToHList (Vec ds a) l, HMapOut ShowElem l String) => Show (Vec ds a)
+> instance (VHList (Vec ds a) l, HMapOut ShowElem l String) => Show (Vec ds a)
 >   where show = (\s -> "< " ++ s ++ " >")
 >              . intercalate ", "
 >              . hMapOut ShowElem
@@ -80,24 +80,20 @@ Vectors can be constructed using 'vCons' and 'vSing' or 'fromHList'.
 > vCons :: Quantity d a -> Vec ds a -> Vec (d:*:ds) a
 > vCons (Dimensional x) (ListVec xs) = ListVec (x:xs)
 
-This class allows converting a HList to the equivalent vector.
+This class allows converting between vectors and the equivalent HLists.
 TODO: The @HNil@ instance should be removed -- we do not want to allow creation
 of empty vectors.
 
-> class FromHList l x | l -> x where fromHList :: l -> x
-> instance FromHList HNil (Vec HNil a) where fromHList _ = ListVec []
-> instance FromHList l (Vec ds a) => FromHList (Quantity d a:*:l) (Vec (d:*:ds) a)
->   where fromHList (HCons x l) = vCons x (fromHList l)
-
-This class allows converting a vector to an equivalent HList.
-
-> class ToHList x l | x -> l where toHList :: x -> l
-> instance ToHList (Vec HNil a) HNil where toHList _ = HNil
-> instance ToHList (Vec ds a) l => ToHList (Vec (d:*:ds) a) (Quantity d a:*:l)
->   where toHList v = HCons (vHead v) (toHList $ vTail v)
-
-
-> -- vBuild = fromHList . hEnd . hBuild
+> class VHList v l | v -> l, l -> v where
+>     toHList :: v -> l
+>     fromHList :: l -> v
+> instance VHList (Vec HNil a) HNil where
+>     toHList _ = HNil
+>     fromHList _ = ListVec []
+> instance VHList (Vec ds a) l => VHList (Vec (d:*:ds) a) (Quantity d a:*:l)
+>   where
+>     toHList v = HCons (vHead v) (toHList $ vTail v)
+>     fromHList (HCons x l) = vCons x (fromHList l)
 
 
 Querying
@@ -266,6 +262,7 @@ Miscellaneous
 
 | Compute the vector norm.
 
+> --vNorm :: (Homo ds d, RealFloat a) => Vec ds a -> Quantity d' a
 > vNorm :: (DotProduct ds ds d, Root d Pos2 d', RealFloat a)
 >       => Vec ds a -> Quantity d' a
 > vNorm v = sqrt (v `dotProduct` v)
