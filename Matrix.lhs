@@ -190,8 +190,9 @@ Addition and subtraction of matrices.
 
 | The identity matrix. The size of the matrix is determined by its type.
 
-> i :: forall vs n a. (Square vs n, HNat2Integral n, MHomo vs DOne, Num a) => Mat vs a
-> i = ListMat $ O.unit_matrix $ hNat2Integral (undefined::n)
+> identity :: forall vs n a. (Square vs n, HNat2Integral n, MHomo vs DOne, Num a)
+>          => Mat vs a
+> identity = ListMat $ O.unit_matrix $ hNat2Integral (undefined::n)
 
 > --ex (ListMat vs) = vs
 
