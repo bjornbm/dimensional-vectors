@@ -111,7 +111,7 @@ Querying
 TODO: The @HNil@ instance should be removed -- we do not want to allow creation
 of empty vectors.
 
-> vTail :: Vec (d:*:ds) a -> Vec ds a
+> vTail :: Vec (d:*:ds) a -> Vec ds a  -- Can create empty vector.
 > vTail (ListVec xs) = ListVec (tail xs)
 
 | @vElem n vec@ returns the @n@:th element of @vec@. The index @n@ is zero-based. I could chose use an HNat for indexing instead of a NumType. It would simplify the type signatures but users are more likely to already have NumTypes in scope than HNats.
@@ -149,8 +149,10 @@ Map a function to the numeric representations of the elements of a vector.
 > vMap f (ListVec xs) = ListVec (map f xs)
 
 Note the lack of type signature permits dangerous coersion. Burden of verifying signature rests on user. Therefore this function should not be exported outside this module.
+TODO: At least ensure that the vectors are of the same length as this ensures the most important invariant.
 
-> vZipWith :: (a -> b -> c) -> Vec ds a -> Vec ds' b -> Vec ds'' c
+> --vZipWith :: (HLength ds n, HLength ds' n, HLength ds'' n) => (a -> b -> c) -> Vec ds a -> Vec ds' b -> Vec ds'' c
+> vZipWith :: (a -> b -> c) -> Vec ds a -> Vec ds' b -> Vec ds'' c  -- Danger!
 > vZipWith f (ListVec v1) (ListVec v2) = ListVec (zipWith f v1 v2)
 
 
