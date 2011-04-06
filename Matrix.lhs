@@ -60,7 +60,7 @@ Matrix construction
 ===================
 | Convert ("promote") a vector to a row matrix.
 
-> rowMatrix :: Vec ds a -> Mat (ds:*:HNil) a
+> rowMatrix :: Vec ds a -> Mat (HSing ds) a
 > rowMatrix (ListVec xs) = ListMat [xs]
 
 | Convert ("promote") a vector to a column matrix.

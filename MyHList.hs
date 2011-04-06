@@ -14,7 +14,8 @@ import Numeric.NumType (PosType, Zero, Pos)
 
 -- | Shorthand type operator for the last element in a HList type
 type a :*. b = a :*: b :*: HNil
---type HSing a = HCons a HNil
+-- | Type synonym for a Singleton HList.
+type HSing a = HCons a HNil
 
 -- | This class is a candidate for the HList library I would think.
 class HZipWith f l1 l2 l3 where hZipWith :: f -> l1 -> l2 -> l3

@@ -72,7 +72,7 @@ Vectors can be constructed using 'vCons' and 'vSing' or 'fromHList'.
 
 | Create a singleton vector.
 
-> vSing :: Quantity d a -> Vec (d:*:HNil) a
+> vSing :: Quantity d a -> Vec (HSing d) a
 > vSing (Dimensional x) = ListVec [x]
 
 | Prepend an element to the vector.
@@ -130,7 +130,7 @@ dimensions of its element.
 >   -- | Converts a homogeneous vector to a list.
 >   toList :: Vec ds a -> [Quantity d a]
 >   toList (ListVec xs) = map Dimensional xs
-> instance Homo (d:*:HNil) d
+> instance Homo (HSing d) d
 > instance Homo (d:*:ds) d => Homo (d:*:(d:*:ds)) d
 
 The above instances ensure that the vector has at least one element. An optional implementation would be to use the below instances without this guarantee.
