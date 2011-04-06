@@ -66,9 +66,11 @@ We implement a custom @Show@ instance.
 >              . toHList
 
 
-Construction
-------------
-Vectors can be constructed using 'vCons' and 'vSing' or 'fromHList'.
+Vector Construction and Deconstruction
+======================================
+Vectors can be primitively constructed using 'vCons' and 'vSing' and
+deconstructed using 'vHead' and 'vTail'. We also provide type classes
+for converting to/from HLists and tuples.
 
 | Create a singleton vector.
 
@@ -80,24 +82,6 @@ Vectors can be constructed using 'vCons' and 'vSing' or 'fromHList'.
 > vCons :: Quantity d a -> Vec ds a -> Vec (d:*:ds) a
 > vCons (Dimensional x) (ListVec xs) = ListVec (x:xs)
 
-This class allows converting between vectors and the equivalent HLists.
-TODO: The @HNil@ instance should be removed -- we do not want to allow creation
-of empty vectors.
-
-> class VHList v l | v -> l, l -> v where
->     toHList :: v -> l
->     fromHList :: l -> v
-> instance VHList (Vec HNil a) HNil where
->     toHList _ = HNil
->     fromHList _ = ListVec []
-> instance VHList (Vec ds a) l => VHList (Vec (d:*:ds) a) (Quantity d a:*:l)
->   where
->     toHList v = HCons (vHead v) (toHList $ vTail v)
->     fromHList (HCons x l) = vCons x (fromHList l)
-
-
-Querying
---------
 | Return the first element of the vector.
 
 > vHead :: Vec (d:*:ds) a -> Quantity d a
@@ -110,6 +94,52 @@ of empty vectors.
 > vTail :: Vec (d:*:ds) a -> Vec ds a  -- Can create empty vector.
 > vTail (ListVec xs) = ListVec (tail xs)
 
+
+Convert to/from HLists
+----------------------
+This class allows converting between vectors and the equivalent HLists.
+TODO: The @HNil@ instance should be removed -- we do not want to allow creation
+of empty vectors.
+
+> class VHList v l | v -> l, l -> v where
+>     toHList   :: v -> l
+>     fromHList :: l -> v
+
+> instance VHList (Vec HNil a) HNil where
+>     toHList   _ = HNil
+>     fromHList _ = ListVec []
+
+> instance VHList (Vec ds a) l => VHList (Vec (d:*:ds) a) (Quantity d a:*:l)
+>   where
+>     toHList v = HCons (vHead v) (toHList $ vTail v)
+>     fromHList (HCons x l) = vCons x (fromHList l)
+
+
+Convert to/from Tuples
+----------------------
+| Convert to/from tuple representation. This is primarily to allow taking
+advantage of the syntactic sugar tuples enjoy.
+
+> class VTuple v t | v -> t, t -> v where
+>   toTuple   :: v -> t
+>   fromTuple :: t -> v
+
+We can brute force the instances ut to a reasonable degree. Presumable
+syntactic sugar loses its value if the vectors get to large as it is
+impractical to deal with them any way other than programmatically.
+
+> instance VTuple (Vec (d1:*.d2) a) (Quantity d1 a, Quantity d2 a) where
+>   toTuple v = (vElemAt zero v, vElemAt pos1 v)
+>   fromTuple (x,y) = vCons x $ vSing y
+
+> instance VTuple (Vec (d1:*:d2:*.d3) a) 
+>                 (Quantity d1 a, Quantity d2 a, Quantity d3  a) where
+>   toTuple v = (vElemAt zero v, vElemAt pos1 v, vElemAt pos2 v)
+>   fromTuple (x,y,z) = vCons x $ vCons y $ vSing z
+
+
+Querying
+========
 | @vElem n vec@ returns the @n@:th element of @vec@. The index @n@ is zero-based. I could chose use an HNat for indexing instead of a NumType. It would simplify the type signatures but users are more likely to already have NumTypes in scope than HNats.
 
 > vElemAt :: (HNatNumType n' n, HLookupByHNat n' ds d)
@@ -271,29 +301,6 @@ Miscellaneous
 
 > vNormalize :: (DotProduct ds ds d, Root d Pos2 d', HMap (DivD, d') ds ds', RealFloat a) => Vec ds a -> Vec ds' a
 > vNormalize v = scaleVec' v (vNorm v)
-
-
-Convert to tuples
-=================
-| Convert to/from tuple representation. This is primarily to allow taking
-advantage of the syntactic sugar tuples enjoy.
-
-> class VTuple v t | v -> t, t -> v where
->   toTuple   :: v -> t
->   fromTuple :: t -> v
-
-| We can brute force the instances ut to a reasonable degree. Presumable
-syntactic sugar loses its value if the vectors get to large as it is
-impractical to deal with them any way other than programmatically.
-
-> instance VTuple (Vec (d1:*.d2) a) (Quantity d1 a, Quantity d2 a) where
->   toTuple v = (vElemAt zero v, vElemAt pos1 v)
->   fromTuple (x,y) = vCons x $ vSing y
-
-> instance VTuple (Vec (d1:*:d2:*.d3) a) 
->                 (Quantity d1 a, Quantity d2 a, Quantity d3  a) where
->   toTuple v = (vElemAt zero v, vElemAt pos1 v, vElemAt pos2 v)
->   fromTuple (x,y,z) = vCons x $ vCons y $ vSing z
 
 
 Test values
