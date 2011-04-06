@@ -56,8 +56,8 @@ that a matrix is well-formed.
 > instance (HLength v n, Cols vs n) => Cols (v:*:vs) n
 
 
-Matrix construction
-===================
+Matrix Construction and Deconstruction
+======================================
 | Convert ("promote") a vector to a row matrix.
 
 > rowMatrix :: Vec ds a -> Mat (HSing ds) a
@@ -79,6 +79,19 @@ will at least prevent building upon a malformed matrix.
 
 > consCol :: Apply ConsEach (xs, vs) vs' => Vec xs a -> Mat vs a -> Mat vs' a
 > consCol (ListVec xs) (ListMat vs) = ListMat (zipWith (:) xs vs)
+
+
+| Return the first row of the matrix.
+
+> rowHead :: Mat (v:*:vs) a -> Vec v a
+> rowHead (ListMat vs) = ListVec (head vs)
+
+| Drop the first row of the matrix.
+TODO: The @HNil@ instance should be removed -- we do not want to allow creation
+of empty matrices.
+
+> rowTail :: Mat (v:*:vs) a -> Mat vs a
+> rowTail (ListMat vs) = ListMat (tail vs)
 
 
 Convert to/from HLists
@@ -107,24 +120,9 @@ of empty matrices.
 >     fromRowHLists (HCons l ls) = consRow (fromHList l) (fromRowHLists ls)
 
 
-Head and tail
--------------
-| Return the first row of the matrix.
-
-> rowHead :: Mat (v:*:vs) a -> Vec v a
-> rowHead (ListMat vs) = ListVec (head vs)
-
-| Drop the first row of the matrix.
-TODO: The @HNil@ instance should be removed -- we do not want to allow creation
-of empty matrices.
-
-> rowTail :: Mat (v:*:vs) a -> Mat vs a
-> rowTail (ListMat vs) = ListMat (tail vs)
-
-
 Transpose
 =========
-Thanks to the @Apply ConsCol@ instances the 'Transpose' instance is pretty simple!
+Thanks to the @Apply ConsEach@ instances the 'Transpose' instance is pretty simple!
 TODO: @transpose mEmpty@ crashes!
 
 > class Transpose vs vs' | vs -> vs' where
