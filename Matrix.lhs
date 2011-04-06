@@ -213,19 +213,21 @@ Rotation matrices. Rotates a vector by the given angle (analogous to rotating th
 >        $ consRow   (vCons (sin a) $ vCons (cos a)          $ vSing _0)
 >        $ rowMatrix (vCons _0      $ vCons _0               $ vSing _1)
 > -- -}
-> {-
 
 
 
 Test values
 
 > m1 = rowMatrix v1
-> m2 = consRow v2 m1
+> {-
+> -- WHY DON'T THESE TYPECHECK WHEN THEY CAN BE ENTERED IN GHCi??
+> m2 = consRow v2 m1 
 > m3 = consRow v3 m2
 > m4 = consCol v3 m2
 > m5 = consRow v4 m1
 > m2' = transpose m2
 > m3' = transpose m3
+> -- -}
 
 > m6 = fromRowHLists ((1.1 *~ meter .*. 2 *~ second .*. HNil)
 >                 .*. (3.3 *~ meter .*. 1 *~ second .*. HNil)
@@ -245,4 +247,3 @@ Test values
 >   .*. (3 *~ (meter ^ pos2 / second) .*. 4 *~ (meter ^ pos2 / second ^ pos2) .*. HNil)
 >   .*. HNil
 > vv1 = fromHList (0 *~ meter ^ pos2 .*. 0 *~ (meter ^ pos2 / second) .*. HNil)
-> -- -}
