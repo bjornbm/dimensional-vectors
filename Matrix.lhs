@@ -31,7 +31,7 @@ A custom @show@ instance for debugging purposes.
 > instance HMapOut ShowElem l String => Apply ShowElems l [String]
 >   where apply _ = hMapOut ShowElem
 
-> instance (ToRowHLists (Mat vs a) ls, HMapOut ShowElems ls [String])
+> instance (RowHLists (Mat vs a) ls, HMapOut ShowElems ls [String])
 >   => Show (Mat vs a) where
 >   show = (\s -> "<< " ++ s ++ " >>")
 >        . intercalate " >,\n < "
@@ -52,7 +52,7 @@ Class for constraining the number of columns in a matrix. In particular ensures
 that a matrix is well-formed.
 
 > class Cols vs n | vs -> n
-> instance Cols HNil n
+> instance Cols HNil n  -- I'm surprised this is consistent with above FD!
 > instance (HLength v n, Cols vs n) => Cols (v:*:vs) n
 
 
@@ -74,31 +74,37 @@ will at least prevent building upon a malformed matrix.
 
 | Prepends a row to a matrix.
 
-> consRow :: (HLength xs n, Cols vs n) => Vec xs a -> Mat vs a -> Mat (xs:*:vs) a
-> consRow (ListVec xs) (ListMat vs) = ListMat (xs:vs)
+> consRow :: Cols (v:*:vs) n => Vec v a -> Mat vs a -> Mat (v:*:vs) a
+> consRow (ListVec v) (ListMat vs) = ListMat (v:vs)
 
 > consCol :: Apply ConsEach (xs, vs) vs' => Vec xs a -> Mat vs a -> Mat vs' a
 > consCol (ListVec xs) (ListMat vs) = ListMat (zipWith (:) xs vs)
 
-This class allows converting a matrix to an equivalent HList of HLists,
-each representing one row in the matrix.
 
-> class ToRowHLists x l | x -> l where toRowHLists :: x -> l
-> instance ToRowHLists (Mat HNil a) HNil where toRowHLists _ = HNil
-> instance (VHList (Vec v a) l, ToRowHLists (Mat vs a) ls)
->   => ToRowHLists (Mat (v:*:vs) a) (l:*:ls)
->   where toRowHLists m = HCons (toHList (rowHead m)) (toRowHLists (rowTail m))
+Convert to/from HLists
+----------------------
+This class allows converting a matrix to an equivalent HList of HLists (each representing one row in the matrix) or from a well-formed HList of HLists into a matrix.
 
-This class allows converting an HList of HLists to the equivalent matrix,
-where each HList is assumed to represent a row.
+Properties:
+  fromRowHLists . toRowHLists = id
+  toRowHLists . fromRowHLists = id
+
 TODO: The @HNil@ instance should be removed -- we do not want to allow creation
 of empty matrices.
 
-> class FromRowHLists l x | l -> x where fromRowHLists :: l -> x
-> instance FromRowHLists HNil (Mat HNil a) where fromRowHLists _ = ListMat []
-> instance (VHList (Vec v a) l, FromRowHLists ls (Mat vs a), Cols vs n, HLength v n)
->   => FromRowHLists (l:*:ls) (Mat (v:*:vs) a)
->   where fromRowHLists (HCons l ls) = consRow (fromHList l) (fromRowHLists ls)
+> class RowHLists m l | m -> l, l -> m where
+>     toRowHLists   :: m -> l
+>     fromRowHLists :: l -> m
+
+> instance RowHLists (Mat HNil a) HNil where
+>     toRowHLists   _ = HNil
+>     fromRowHLists _ = ListMat []
+
+> instance (VHList (Vec v a) l, RowHLists (Mat vs a) ls, Cols (v:*:vs) n)
+>       => RowHLists (Mat (v:*:vs) a) (l:*:ls)
+>   where
+>     toRowHLists m = HCons (toHList (rowHead m)) (toRowHLists (rowTail m))
+>     fromRowHLists (HCons l ls) = consRow (fromHList l) (fromRowHLists ls)
 
 
 Head and tail
