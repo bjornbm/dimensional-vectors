@@ -145,9 +145,24 @@ term that could be used... project??
 >   matVec (ListMat vs) (ListVec v) = ListVec (O.matrix_ket vs v)
 
 > data DotProd
-> instance DotProduct v1 v2 v3 => Apply  DotProd (v2, v1) v3 where apply _ _ = undefined
-> instance DotProduct v1 v2 v3 => Apply (DotProd, v2) v1  v3 where apply _ _ = undefined
+> instance DotProduct v1 v2 v3 => Apply  DotProd (v2, v1) v3
+>   where apply _ _ = undefined
+> instance DotProduct v1 v2 v3 => Apply (DotProd, v2) v1  v3
+>   where apply _ _ = undefined
 > instance HMap (DotProd, v) m m' => MatrixVector m v m'
+
+| Multiplying a vector to the left of a matrix. This is equivalent to
+multiplying a vector to the right of the transposed matrix.
+
+> vecMat :: (Transpose m m', MatrixVector m' v v', Num a)
+>        => Vec v a -> Mat m a -> Vec v' a
+> vecMat v m = transpose m `matVec` v
+
+| The dyadic product.
+
+> dyadicProduct :: (HMap Sing v1 vs, MatrixMatrix vs (HSing v2) m, Num a)
+>               => Vec v1 a -> Vec v2 a -> Mat m a
+> v1 `dyadicProduct` v2 = colMatrix v1 `matMat` rowMatrix v2
 
 
 Matrix time matrix
