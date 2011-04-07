@@ -27,6 +27,10 @@ import qualified Prelude
 -- the ideal we are forced to reverse order of characters from the ideal
 -- (for consistency with other operator conventions in this module the
 -- @>@ and @|@ should have been on the right side of the operator).
+
+infixl 7  *<, >*, >/, >.<, *|, |*, |*|, |*<, >*|
+infixl 6  >+<, >-<, |+|, |-|
+
 (<:) = vCons
 x <:. y = x <: vSing y
 (|:)  :: Wellformed (v:*:vs) => Vec v a -> Mat vs a -> Mat (v:*:vs) a
@@ -42,14 +46,15 @@ v1 |:. v2 = v1 |: rowMatrix v2
 (>+<), (>-<) :: Num a => Vec v a -> Vec v a -> Vec v a
 (>+<) = elemAdd
 (>-<) = elemSub
-(>.<) :: (DotProduct v1 v2 d, Num a) => Vec v1 a -> Vec v2 a -> Quantity d a
-(>.<) = dotProduct
 (*<)  :: (HMap (MulD, d) v1 v2, Num a) => Quantity d a -> Vec v1 a -> Vec v2 a
 (*<)  = scaleVec
 (>*)  :: (HMap (MulD, d) v1 v2, Num a) => Vec v1 a -> Quantity d a -> Vec v2 a
 (>*)  = flip scaleVec
-(>/)  :: (HMap (DivD,d) v1 v2, Fractional a) => Vec v1 a -> Quantity d a -> Vec v2 a
-(>/)  = scaleVec'
+(>/)  :: (Div DOne d d', HMap (MulD, d') v1 v2, Fractional a)
+      => Vec v1 a -> Quantity d a -> Vec v2 a
+v >/ x = v >* (_1 / x)
+(>.<) :: (DotProduct v1 v2 d, Num a) => Vec v1 a -> Vec v2 a -> Quantity d a
+(>.<) = dotProduct
 
 -- Matrices
 (|+|), (|-|) :: Num a => Mat m a -> Mat m a -> Mat m a
