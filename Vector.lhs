@@ -19,6 +19,14 @@ changing the internal representation to something more efficient
 (e.g.  GSLHaskell) will be transparent once all the type trickery
 has been worked out.
 
+NOTE: This library allows construction of vectors and matrices with
+no elements, e.g. using vTail. It could be argued that such vectors
+and matrices should be disallowed, but the price would be more
+complex type class instances. In practice, due to the static checking
+for all operations I believe this is a non-issue and there is really
+nothing dangerous or misleading one could do with the empty
+vectors/matrices.
+
 > {-# OPTIONS_GHC -fglasgow-exts #-}
 > {-# LANGUAGE UndecidableInstances
 >            , TypeOperators
@@ -88,7 +96,6 @@ for converting to/from HLists and tuples.
 > vHead (ListVec xs) = Dimensional (head xs)
 
 | Drop the first element of the vector.
-TODO: The @HNil@ instance should be removed -- we do not want to allow creation
 of empty vectors.
 
 > vTail :: Vec (d:*:ds) a -> Vec ds a  -- Can create empty vector.
@@ -98,14 +105,13 @@ of empty vectors.
 Convert to/from HLists
 ----------------------
 This class allows converting between vectors and the equivalent HLists.
-TODO: The @HNil@ instance should be removed -- we do not want to allow creation
 of empty vectors.
 
 > class VHList v l | v -> l, l -> v where
 >     toHList   :: v -> l
 >     fromHList :: l -> v
 
-> instance VHList (Vec HNil a) HNil where
+> instance VHList (Vec HNil a) HNil where  -- Can create empty vector.
 >     toHList   _ = HNil
 >     fromHList _ = ListVec []
 

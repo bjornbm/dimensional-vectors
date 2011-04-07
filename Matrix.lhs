@@ -94,8 +94,6 @@ Matrix Construction and Deconstruction
 > rowHead (ListMat vs) = ListVec (head vs)
 
 | Drop the first row of the matrix.
-TODO: The @HNil@ instance should be removed -- we do not want to allow creation
-of empty matrices.
 
 > rowTail :: Mat (v:*:vs) a -> Mat vs a
 > rowTail (ListMat vs) = ListMat (tail vs)
@@ -109,14 +107,11 @@ Properties:
   fromRowHLists . toRowHLists = id
   toRowHLists . fromRowHLists = id
 
-TODO: The @HNil@ instance should be removed -- we do not want to allow creation
-of empty matrices.
-
 > class RowHLists m l | m -> l, l -> m where
 >     toRowHLists   :: m -> l
 >     fromRowHLists :: l -> m
 
-> instance RowHLists (Mat HNil a) HNil where
+> instance RowHLists (Mat HNil a) HNil where  -- Can create empty matrix.
 >     toRowHLists   _ = HNil
 >     fromRowHLists _ = ListMat []
 
@@ -130,11 +125,12 @@ of empty matrices.
 Transpose
 =========
 Thanks to the @Apply ConsEach@ instances the 'Transpose' instance is pretty simple!
-TODO: @transpose mEmpty@ crashes!
+
+Properties:
+  tranpose . transpose = id
 
 > class Transpose vs vs' | vs -> vs' where
 >   transpose :: Mat vs a -> Mat vs' a
->   transpose (ListMat []) = ListMat []
 >   transpose (ListMat vs) = ListMat (O.transposed vs)
 > instance (HHead m v, HMap HNil v v', HFoldr ConsEach v' m m') => Transpose m m'
 
