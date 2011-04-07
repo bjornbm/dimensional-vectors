@@ -248,13 +248,6 @@ constraint @HMap (MulD, DOne) ds ds@ for this common case.
 > scaleVec1 :: Num a => Dimensionless a -> Vec ds a -> Vec ds a
 > scaleVec1 (Dimensional x) = vMap (x P.*)
 
-| Scale a vector by division. Each element of the vector is divided
-by the second argument (note the reversed argument order).
-
-> scaleVec' :: (HMap (DivD,d) ds1 ds2, Fractional a)
->           => Vec ds1 a -> Quantity d a -> Vec ds2 a
-> scaleVec' (ListVec xs) (Dimensional x) = ListVec (map (P./ x) xs)
-
 
 Dot product
 ===========
@@ -305,8 +298,8 @@ Miscellaneous
 
 | Normalize a vector. The vector must be homogeneous.
 
-> vNormalize :: (DotProduct ds ds d, Root d Pos2 d', HMap (DivD, d') ds ds', RealFloat a) => Vec ds a -> Vec ds' a
-> vNormalize v = scaleVec' v (vNorm v)
+> vNormalize :: (DotProduct ds ds d, Root d Pos2 d', Div DOne d' d'', HMap (MulD, d'') ds ds', RealFloat a) => Vec ds a -> Vec ds' a
+> vNormalize v = (_1 / vNorm v) `scaleVec` v
 
 
 Test values
