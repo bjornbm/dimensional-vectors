@@ -8,18 +8,17 @@ import Numeric.Units.Dimensional (Dimensional (Dimensional), Quantity, Div)
 import Numeric.AD (AD, Mode)
 import qualified Numeric.AD (diff, lift)
 
-diff :: (Num a, Div d2 d1 d2')
+-- | Unwrap a Dimensionals numeric representation.
+undim :: Dimensional v d a -> a
+undim (Dimensional a) = a
+
+diff :: (Num a, Div d2 d1 d3)
      => (forall tag. Mode tag => Quantity d1 (AD tag a) -> Quantity d2 (AD tag a))
-     -> Quantity d1 a -> Quantity d2' a
-{-diff f (Dimensional x) = Dimensional (Numeric.AD.diff f' x)
-  where
-    f' = undim . f . Dimensional
-    undim (Dimensional a) = a -}
-diff f (Dimensional x) = Dimensional $ Numeric.AD.diff (undim . f . Dimensional) x
-  where
-    undim (Dimensional a) = a
+     -> Quantity d1 a -> Quantity d3 a
+diff f = Dimensional . Numeric.AD.diff (undim . f . Dimensional) . undim
 
 
 class Lift w where lift :: (Num a, Mode t) => w a -> w (t a)
 instance Lift (Dimensional v d)
-  where lift (Dimensional x) = Dimensional (Numeric.AD.lift x)
+  --where lift (Dimensional x) = Dimensional (Numeric.AD.lift x)
+  where lift = Dimensional . Numeric.AD.lift . undim
