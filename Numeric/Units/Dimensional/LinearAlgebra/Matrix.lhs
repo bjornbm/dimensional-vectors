@@ -199,13 +199,17 @@ Addition and subtraction of matrices.
 > mElemSub :: Num a => Mat vs a -> Mat vs a -> Mat vs a
 > mElemSub (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.-)) vs1 vs2)
 
-| The identity matrix. The size of the matrix is determined by its type.
+| The identity matrix. The size of the matrix is determined by its
+type. The physical dimensions of the elements of the identity
+matrix necessarily depend on the matrix or vector it will operate on
+(by multiplication). Not all matrices have a valid identity matrix,
+but when an identity matrix exists the elements on the diagonal are
+always dimensionless. Unfortunately this function does not assist
+in determining the type of the identity matrix, but when it is
+involved in addition or subtraction it can be inferred.
 
-> identity :: forall vs n a. (Square vs n, HNat2Integral n, MHomo vs DOne, Num a)
->          => Mat vs a
+> identity :: forall vs n a. (Square vs n, HNat2Integral n, Num a) => Mat vs a
 > identity = ListMat $ O.unit_matrix $ hNat2Integral (undefined::n)
-
-> --ex (ListMat vs) = vs
 
 
 Homogeneous Matrices
