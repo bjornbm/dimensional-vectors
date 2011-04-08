@@ -37,7 +37,9 @@ Build-Depends:
 Exposed-Modules:
 
     Numeric.Units.Dimensional.LinearAlgebra,
+
     Numeric.Units.Dimensional.LinearAlgebra.Operators,
+    Numeric.Units.Dimensional.LinearAlgebra.HListExtras,
 
     Vector,
     Matrix,

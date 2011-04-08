@@ -5,12 +5,12 @@
 
 > import Data.List (intercalate)
 > import Data.HList
-> import MyHList
-> import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
 > import Numeric.Units.Dimensional.Prelude
-> import qualified Prelude as P
-> import qualified Orthogonals as O
+> import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
+> import Numeric.Units.Dimensional.LinearAlgebra.HListExtras
 > import Vector
+> import qualified Orthogonals as O
+> import qualified Prelude as P
 
 
 | A matrix is a list of rows (which in turn are lists). The matrix construction

@@ -5,8 +5,8 @@ module VectorAD where
 import qualified Prelude
 import Numeric.Units.Dimensional.Prelude
 import Numeric.Units.Dimensional (Dimensional (Dimensional))
+import Numeric.Units.Dimensional.LinearAlgebra.HListExtras (HZipWith)
 import Data.HList (HMap)
-import MyHList (HZipWith)
 import Numeric.Units.Dimensional (Dimensional (Dimensional), Quantity, Div, DOne)
 import Vector (Vec (ListVec), MulD, DivD, Homo, elemAdd, scaleVec)
 import Numeric.AD (AD, diffF, diffF', Mode)

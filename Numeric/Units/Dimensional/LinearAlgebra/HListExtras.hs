@@ -6,8 +6,9 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
+-- | Extra type classes and instances functions for working with HLists.
+module Numeric.Units.Dimensional.LinearAlgebra.HListExtras where
 
-module MyHList where
 
 import Data.HList
 import Numeric.NumType (PosType, Zero, Pos)
@@ -29,7 +30,7 @@ instance Apply HNil a HNil where apply _ _ = HNil
 -- | The @Apply Cons@ instance converts a pair into an HList. The second element of
 -- the pair must be an HList.
 data Cons = Cons
-instance HList l => Apply Cons (e, l) (e:*:l) where apply _ = uncurry HCons
+instance HList l => Apply Cons (e,l) (e:*:l) where apply _ = uncurry HCons
 instance HList l => Apply (Cons,l) e (e:*:l) where apply (_,l) e = HCons e l
 
 -- | The Apply instance producing a singleton HList.
@@ -43,8 +44,7 @@ data ConsEach
 instance HZipWith Cons xs vs vs' => Apply ConsEach (xs, vs) vs'
   where apply _ = uncurry (hZipWith Cons)
 
-
--- | Class for conversion from HList's $HNat$s to NumTypes $NumType$s.
+-- | Class for conversion from HList's @HNat@s to NumTypes @NumType@s.
 class (HNat h, PosType n) => HNatNumType h n | h -> n, n -> h where
   fromHNat :: h -> n
   fromHNat _ = undefined
@@ -52,4 +52,3 @@ class (HNat h, PosType n) => HNatNumType h n | h -> n, n -> h where
   toHNat _ = undefined
 instance HNatNumType HZero Zero
 instance HNatNumType h n => HNatNumType (HSucc h) (Pos n)
-
