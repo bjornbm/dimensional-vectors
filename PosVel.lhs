@@ -7,10 +7,9 @@ The convention in this module is that a @C@ denotes cartesian coordinates and an
 > module PosVel where
 
 > import qualified Prelude
-> import Vector
-> import Matrix
 > import Numeric.Units.Dimensional.Prelude
 > import Numeric.Units.Dimensional (Dimensional (Dimensional))
+> import Numeric.Units.Dimensional.LinearAlgebra
 > import Data.HList
 > import VectorAD (applyLinear)
 
@@ -26,10 +25,10 @@ Type synonyms for clearer documentation.
 
 Some type synonyms for convenience.
 
-> type Vec3 d1 d2 d3 = Vec (d1 :*: d2 :*: d3 :*: HNil)
-> type CPos = Vec3 DLength DLength DLength  -- ^ x y z
+> type Vec3 d1 d2 d3 = Vec (d1:*:d2:*.d3)
+> type CPos = Vec3 DLength   DLength   DLength  -- ^ x y z
 > type CVel = Vec3 DVelocity DVelocity DVelocity
-> type SPos = Vec3 DRadius DZenith DRightAscension
+> type SPos = Vec3 DRadius   DZenith   DRightAscension
 > type SVel = Vec3 DVelocity DAngularVelocity DAngularVelocity
 
 Data type combining position and velocity into a state vector (minus epoch).

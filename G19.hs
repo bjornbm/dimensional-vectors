@@ -1,6 +1,5 @@
-import Vector
-import Matrix
 import Numeric.Units.Dimensional.Prelude
+import Numeric.Units.Dimensional.LinearAlgebra
 import qualified Prelude
 
 
@@ -42,8 +41,8 @@ err = acos (att_f `dotProduct` att_f')
 -- SEQUENCE OF BODY VECTORS, ROW-WISE
 -- (we convert the rows to columns in a matrix)
 atti = consCol (vCons (( 0.9177274117e+00)*~one) $ vCons ((-0.3972104506e+00)*~one) $ vSing ((-0.5057800831e-03)*~one))
-    $   consCol (vCons ((-0.4759639595e-03)*~one) $ vCons (( 0.1736481140e-03)*~one) $ vSing ((-0.9999998717e+00)*~one))
-    $ colMatrix (vCons (( 0.3972104874e+00)*~one) $ vCons (( 0.9177275346e+00)*~one) $ vSing ((-0.2969622460e-04)*~one))
+   $   consCol (vCons ((-0.4759639595e-03)*~one) $ vCons (( 0.1736481140e-03)*~one) $ vSing ((-0.9999998717e+00)*~one))
+   $ colMatrix (vCons (( 0.3972104874e+00)*~one) $ vCons (( 0.9177275346e+00)*~one) $ vSing ((-0.2969622460e-04)*~one))
 
 -- G-19 AMF1 slew sequence.
 rotR = rotX ((   1.022)*~degree) -- ES bias.
