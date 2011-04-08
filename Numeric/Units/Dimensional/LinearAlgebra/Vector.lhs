@@ -300,29 +300,3 @@ Miscellaneous
 
 > vNormalize :: (DotProduct ds ds d, Root d Pos2 d', Div DOne d' d'', HMap (MulD, d'') ds ds', RealFloat a) => Vec ds a -> Vec ds' a
 > vNormalize v = (_1 / vNorm v) `scaleVec` v
-
-
-Test values
-===========
-
-> l1 = HCons (1.0 *~ meter) $ HCons (2.1 *~ second) $ HNil
-> l2 = HCons (2.0 *~ hertz) $ HCons ((-0.1) *~ kilo gram) $ HNil
-> l3 = HCons (133.0 *~ second) $ HCons (2.1 *~ meter) $ HNil
-> l4 = (2.0 *~ hertz) .*. (22.0 *~ meter ^ neg1) .*. HNil
-
-> v1 = fromHList l1
-> v2 = fromHList l2
-> v3 = fromHList l3
-> v4 = fromHList l4
-> v5 = vCons (3 *~ newton) v4
-
-Testing crossProduct with homogeneous and heterogeneous vectors.
-
-> vc1 = vCons (3 *~ meter) $ vCons (2 *~ meter) $ vSing (1 *~ meter)
-> vc2 = vCons (1 *~ hertz) $ vCons (2 *~ hertz) $ vSing (3 *~ hertz)
-> vc12 = crossProduct vc1 vc2
-
-> vc3 = vCons (3.0 *~ meter)            $ vCons (2 *~ one)   $ vSing (1 *~ one)
-> vc4 = vCons (1   *~ (meter / second)) $ vCons (2 *~ hertz) $ vSing (3 *~ hertz)
-> vc34 = crossProduct vc3 vc4
-

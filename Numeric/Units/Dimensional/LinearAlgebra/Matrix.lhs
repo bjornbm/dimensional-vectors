@@ -216,36 +216,3 @@ homogeneous if all elements have the same physical dimensions.
 > class MHomo vs d | vs -> d
 > instance MHomo (HNil) d
 > instance (Homo v d, MHomo vs d) => MHomo (v:*:vs) d
-
-
-Test values
-
-> m1 = rowMatrix v1
-> {-
-> -- WHY DON'T THESE TYPECHECK WHEN THEY CAN BE ENTERED IN GHCi??
-> m2 = consRow v2 m1 
-> m3 = consRow v3 m2
-> m4 = consCol v3 m2
-> m5 = consRow v4 m1
-> m2' = transpose m2
-> m3' = transpose m3
-> -- -}
-
-> m6 = fromRowHLists ((1.1 *~ meter .*. 2 *~ second .*. HNil)
->                 .*. (3.3 *~ meter .*. 1 *~ second .*. HNil)
->                 .*. HNil)
-> m7 = fromRowHLists ((1.1 *~ second .*. 2 *~ meter .*. HNil)
->                 .*. (3.3 *~ second .*. 1 *~ meter .*. HNil)
->                 .*. HNil)
-> m8 = fromRowHLists ((1.1 *~ second .*. 2 *~ second .*. HNil)
->                 .*. (3.3 *~ meter  .*. 1 *~ meter  .*. HNil)
->                 .*. HNil)
-> m6m8 = matMat m6 m8
-> m8m6 = matMat m8 m6
-
-> mm1 = rowMatrix $ fromHList $ _1 .*. 2 *~ second .*. HNil
-> mm2 = fromRowHLists 
->   $   (1 *~ meter ^ pos2            .*. 2 *~ (meter ^ pos2 / second)        .*. HNil)
->   .*. (3 *~ (meter ^ pos2 / second) .*. 4 *~ (meter ^ pos2 / second ^ pos2) .*. HNil)
->   .*. HNil
-> vv1 = fromHList (0 *~ meter ^ pos2 .*. 0 *~ (meter ^ pos2 / second) .*. HNil)
