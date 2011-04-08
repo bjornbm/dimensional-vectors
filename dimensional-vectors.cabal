@@ -1,5 +1,5 @@
 Name:                dimensional-vectors
-Version:             0.7
+Version:             0.8
 License:             BSD3
 License-File:        LICENSE
 Copyright:           Bjorn Buckwalter 2008-2011
@@ -37,15 +37,10 @@ Build-Depends:
 Exposed-Modules:
 
     Numeric.Units.Dimensional.LinearAlgebra,
-
+    Numeric.Units.Dimensional.LinearAlgebra.Vector,
+    Numeric.Units.Dimensional.LinearAlgebra.Matrix,
     Numeric.Units.Dimensional.LinearAlgebra.Operators,
-    Numeric.Units.Dimensional.LinearAlgebra.HListExtras,
-
-    Vector,
-    Matrix,
-    AD,
-    VectorAD,
-    PosVel
+    Numeric.Units.Dimensional.LinearAlgebra.HListExtras
 
 Extra-source-files:  README, LICENSE
 

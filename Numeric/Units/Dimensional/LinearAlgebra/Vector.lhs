@@ -32,7 +32,7 @@ vectors/matrices.
 >            , TypeOperators
 >   #-}
 
-> module Vector
+> module Numeric.Units.Dimensional.LinearAlgebra.Vector
 >   {- ( Vec
 >   , vEmpty, vHead, vTail, vCons
 >   , fromHList, toHList

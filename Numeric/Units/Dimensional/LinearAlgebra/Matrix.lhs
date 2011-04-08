@@ -1,14 +1,14 @@
 > {-# OPTIONS_GHC -fglasgow-exts #-}
 > {-# LANGUAGE UndecidableInstances #-}
 
-> module Matrix where
+> module Numeric.Units.Dimensional.LinearAlgebra.Matrix where
 
 > import Data.List (intercalate)
 > import Data.HList
 > import Numeric.Units.Dimensional.Prelude
 > import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
 > import Numeric.Units.Dimensional.LinearAlgebra.HListExtras
-> import Vector
+> import Numeric.Units.Dimensional.LinearAlgebra.Vector
 > import qualified Orthogonals as O
 > import qualified Prelude as P
 
