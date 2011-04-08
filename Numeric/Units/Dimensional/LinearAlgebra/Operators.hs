@@ -1,4 +1,7 @@
--- Convention:
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeOperators #-}
+
+-- | Convention:
 --
 --   >  Vector to the left of operator (mnemonic: v)
 --   <  Vector to the right of operator (mnemonic: v)
@@ -7,10 +10,6 @@
 --
 -- The above symbols were chosen to minimize risk of conflict with common
 -- operators from other libraries (based on Hoogle search).
-
-
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeOperators #-}
 
 module Numeric.Units.Dimensional.LinearAlgebra.Operators where
 
@@ -22,14 +21,17 @@ import Numeric.Units.Dimensional.LinearAlgebra.HListExtras (HNatNumType)
 import qualified Prelude
 
 
+-- Operator fixity analogous with Prelude.
+infixl 9  >!!
+infixl 7  *<, >*, >/, >.<, *|, |*, |*|, |*<, >*|
+infixl 6  >+<, >-<, |+|, |-|
+infixr 5  <:, <:., |:, |:.
+
 -- These in these construction operators the @:@ cannot be to the left
 -- so the order of characters in the operator are somewhat reversed from
 -- the ideal we are forced to reverse order of characters from the ideal
 -- (for consistency with other operator conventions in this module the
 -- @>@ and @|@ should have been on the right side of the operator).
-
-infixl 7  *<, >*, >/, >.<, *|, |*, |*|, |*<, >*|
-infixl 6  >+<, >-<, |+|, |-|
 
 (<:) = vCons
 x <:. y = x <: vSing y
@@ -39,8 +41,8 @@ v1 |:. v2 = v1 |: rowMatrix v2
 
 -- | Vector element querying.
 (>!!) :: (HNatNumType n' n, HLookupByHNat n' ds d)
-        => n -> Vec ds a -> Quantity d a
-(>!!) = vElemAt
+        => Vec ds a -> n -> Quantity d a
+v >!! n = vElemAt n v
 
 -- Vectors
 (>+<), (>-<) :: Num a => Vec v a -> Vec v a -> Vec v a
