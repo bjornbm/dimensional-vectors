@@ -71,4 +71,4 @@ v >/ x = v >* (_1 / x)
 (|*<) :: (MatrixVector m v1 v2, Num a) => Mat m a -> Vec v1 a -> Vec v2 a
 (|*<) = matVec
 (>*|) :: (Transpose m m', MatrixVector m' v v', Num a) => Vec v a -> Mat m a -> Vec v' a
-(>*|) = vecMat
+(>*|) v m = transpose m |*< v   -- vecMat v m
