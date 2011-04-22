@@ -1,5 +1,11 @@
-{-# OPTIONS_GHC -fglasgow-exts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Numeric.Units.Dimensional.LinearAlgebra.Matrix where
 
@@ -127,8 +133,8 @@ instance (VHList (Vec v a) l, RowHLists (Mat vs a) ls, Wellformed (v:*:vs))
 -- Properties:
 --   tranpose . transpose = id
 --
-class Transpose vs vs' | vs -> vs' where
-  transpose :: Mat vs a -> Mat vs' a
+class Transpose m m' | m -> m' where
+  transpose :: Mat m a -> Mat m' a
   transpose (ListMat vs) = ListMat (O.transposed vs)
 instance (HHead m v, HMap HNil v v', HFoldr ConsEach v' m m') => Transpose m m'
 
@@ -145,7 +151,7 @@ instance DotProduct v1 v2 v3 => Apply  DotProd (v2, v1) v3
   where apply _ _ = undefined
 instance DotProduct v1 v2 v3 => Apply (DotProd, v2) v1  v3
   where apply _ _ = undefined
-instance HMap (DotProd, v) m m' => MatrixVector m v m'
+instance HMap (DotProd, v) m v' => MatrixVector m v v'
 
 -- | Multiplying a vector to the left of a matrix. This is equivalent
 -- to multiplying a vector to the right of the transposed matrix.

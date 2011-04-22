@@ -29,9 +29,13 @@ nothing dangerous or misleading one could do with the empty
 vectors/matrices.
 -}
 
-{-# OPTIONS_GHC -fglasgow-exts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Numeric.Units.Dimensional.LinearAlgebra.Vector
   {- ( Vec
