@@ -36,6 +36,7 @@ vectors/matrices.
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE EmptyDataDecls #-}
 
 module Numeric.Units.Dimensional.LinearAlgebra.Vector
   {- ( Vec
