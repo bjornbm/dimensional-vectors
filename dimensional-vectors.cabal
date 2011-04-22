@@ -31,8 +31,7 @@ Build-Depends:
     dimensional < 1.1,
     numtype < 1.1,
     HList >= 0.2.1 && < 0.3,
-    numeric-quest < 0.2,
-    ad >= 0.44.4 && < 1.1
+    numeric-quest < 0.2
 
 Exposed-Modules:
 
