@@ -3,10 +3,10 @@
 
 -- | Convention:
 --
---   >  Vector to the left of operator (mnemonic: v)
---   <  Vector to the right of operator (mnemonic: v)
---   |  Matrix to side of operator
---   .  Last element of vector/matrix.
+--   @>@  Vector to the left of operator (mnemonic: v)
+--   @<@  Vector to the right of operator (mnemonic: v)
+--   @|@  Matrix to side of operator
+--   @.@  Last element of vector/matrix.
 --
 -- The above symbols were chosen to minimize risk of conflict with common
 -- operators from other libraries (based on Hoogle search).
