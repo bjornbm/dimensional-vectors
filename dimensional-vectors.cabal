@@ -27,11 +27,11 @@ Build-Type:          Simple
 Build-Depends:
 
     base < 5, 
-    time < 1.3,
-    dimensional < 1.1,
-    numtype < 1.1,
-    HList >= 0.2.1 && < 0.3,
-    numeric-quest < 0.2
+    time,
+    dimensional,
+    numtype,
+    HList >= 0.2.1,
+    numeric-quest
 
 Exposed-Modules:
 
