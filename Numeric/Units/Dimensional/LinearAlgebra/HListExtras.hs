@@ -18,6 +18,19 @@ type a :*. b = a :*: b :*: HNil
 -- | Type synonym for a Singleton HList.
 type HSing a = HCons a HNil
 
+
+-- | Iterate a function over a HList.
+class HIterate' f l a where hIterate' :: f -> l -> a
+instance HIterate' a HNil a where hIterate' = const
+instance HIterate' f l a => HIterate' (b -> f) (HCons b l) a
+  where hIterate' f (HCons x l) = hIterate' (f x) l
+
+-- | Iterate over a HList using any @Apply@ instance.
+class HIterate f l a where hIterate :: f -> l -> a
+instance HIterate a HNil a where hIterate = const
+instance (Apply g b f, HIterate f l a) => HIterate g (HCons b l) a
+  where hIterate f (HCons x l) = hIterate (apply f x) l
+
 -- | This class is a candidate for the HList library I would think.
 class HZipWith f l1 l2 l3 where hZipWith :: f -> l1 -> l2 -> l3
 instance (HZip l1 l2 l', HMap f l' l3) => HZipWith f l1 l2 l3

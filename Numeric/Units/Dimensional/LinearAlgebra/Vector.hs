@@ -122,6 +122,16 @@ instance VHList (Vec ds a) l => VHList (Vec (d:*:ds) a) (Quantity d a:*:l)
     toHList v = HCons (vHead v) (toHList $ vTail v)
     fromHList (HCons x l) = vCons x (fromHList l)
 
+-- Iteration
+-- ---------
+-- | Iterate a function over the elements of a vector. This can
+-- be considered a form of uncurrying so the function operates
+-- on a vector.
+class VIterate ds a f b | ds f -> b
+  where vIterate :: (Quantity d a -> f) -> Vec (d:*:ds) a -> b a
+instance VIterate (HNil) a (b a) b where vIterate f = f . vHead
+instance VIterate ds a f b => VIterate (d:*:ds) a (Quantity d a -> f) b
+  where vIterate f v = f (vHead v) `vIterate` vTail v
 
 -- Convert to/from Tuples
 -- ----------------------
