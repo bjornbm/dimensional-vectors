@@ -13,7 +13,7 @@ module Numeric.Units.Dimensional.LinearAlgebra.Matrix where
 import Data.List (intercalate)
 import Data.HList
 import Numeric.Units.Dimensional.Prelude
-import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
+import Numeric.Units.Dimensional (Dimensional (..))
 import Numeric.Units.Dimensional.LinearAlgebra.HListExtras
 import Numeric.Units.Dimensional.LinearAlgebra.Vector
 import qualified Orthogonals as O
@@ -26,7 +26,7 @@ import qualified Prelude as P
 -- opposed to a list of columns is an implementation detail that we try to not leak
 -- through the API. Ultimately, however, that choice will be visible through the
 -- type signatures of matrices.
-data Mat vs a = ListMat [[a]] -- deriving Show
+data Mat vs a = ListMat [[a]] deriving Eq
 
 
 -- Showing
