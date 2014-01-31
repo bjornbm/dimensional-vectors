@@ -30,7 +30,7 @@ Build-Depends:
     time,
     dimensional,
     numtype,
-    HList >= 0.2.1,
+    HList >= 0.2.1 && <0.3,
     numeric-quest
 
 Exposed-Modules:
