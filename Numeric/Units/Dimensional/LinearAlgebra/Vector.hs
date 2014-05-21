@@ -113,12 +113,6 @@ class VHList v l | v -> l, l -> v where
     toHList   :: v -> l
     fromHList :: l -> v
 
-{-
-instance VHList (Vec HNil a) HNil where  -- Can create empty vector.
-    toHList   _ = HNil
-    fromHList _ = ListVec []
-    -}
-
 instance VHList (Vec (HSing d) a) (HSing (Quantity d a))
   where
     toHList v = HCons (vHead v) HNil
@@ -187,14 +181,6 @@ class Homo ds d | ds -> d where
 instance Homo (HSing d) d
 instance Homo (d:*:ds) d => Homo (d:*:(d:*:ds)) d
 
-{-
-The above instances ensure that the vector has at least one element.
-An optional implementation would be to use the below instances
-without this guarantee.
-
-  instance Homo HNil d
-  instance Homo ds d => Homo (HCons d ds) d
--}
 
 {-
 Utility functions (do not export!)

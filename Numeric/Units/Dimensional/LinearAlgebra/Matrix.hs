@@ -58,7 +58,6 @@ instance HLength vs n => Rows vs n  -- Trivial.
 -- ensures that all matrix is well-formed (all colums are of equal
 -- length).
 class Cols vs n | vs -> n
---instance Cols HNil n  -- I'm surprised this is consistent with above FD!
 instance (HLength v n, Cols vs n) => Cols (v:*:vs) n
 
 -- | Class ensuring a matrix is wellformed. A matrix is well-formed
@@ -114,12 +113,6 @@ rowTail (ListMat vs) = ListMat (tail vs)
 class RowHLists m l | m -> l, l -> m where
     toRowHLists   :: m -> l
     fromRowHLists :: l -> m
-
-{-
-instance RowHLists (Mat HNil a) HNil where  -- Can create empty matrix.
-    toRowHLists   _ = HNil
-    fromRowHLists _ = ListMat []
-    -}
 
 instance VHList (Vec v a) l => RowHLists (Mat (HSing v) a) (HSing l) where  -- Can create empty matrix.
     toRowHLists   m = HCons (toHList $ rowHead m) HNil
@@ -226,6 +219,5 @@ identity = ListMat $ O.unit_matrix $ hNat2Integral (undefined::n)
 -- | Class constraining to homogeneous matrices. A matrix is
 -- homogeneous if all elements have the same physical dimensions.
 class MHomo vs d | vs -> d
---instance MHomo (HNil) d
 instance (Homo v d) => MHomo (HSing v) d
 instance (Homo v d, MHomo vs d) => MHomo (v:*:vs) d
