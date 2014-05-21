@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -58,6 +59,7 @@ instance HLength vs n => Rows vs n  -- Trivial.
 -- ensures that all matrix is well-formed (all colums are of equal
 -- length).
 class Cols vs n | vs -> n
+instance (HLength v n) => Cols (HSing v) n
 instance (HLength v n, Cols vs n) => Cols (v:*:vs) n
 
 -- | Class ensuring a matrix is wellformed. A matrix is well-formed

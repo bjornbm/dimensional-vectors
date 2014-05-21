@@ -30,6 +30,7 @@ vectors/matrices.
 -}
 
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
