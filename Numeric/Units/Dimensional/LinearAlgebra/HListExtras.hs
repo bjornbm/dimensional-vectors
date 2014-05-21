@@ -32,7 +32,7 @@ instance (Apply g b f, HIterate f l a) => HIterate g (HCons b l) a
   where hIterate f (HCons x l) = hIterate (apply f x) l
 
 -- | This class is a candidate for the HList library I would think.
-class HZipWith f l1 l2 l3 where hZipWith :: f -> l1 -> l2 -> l3
+class HZipWith f l1 l2 l3 | f l1 l2 -> l3 where hZipWith :: f -> l1 -> l2 -> l3
 instance (HZip l1 l2 l', HMap f l' l3) => HZipWith f l1 l2 l3
   where hZipWith f l1 l2 = hMap f (hZip l1 l2)
 

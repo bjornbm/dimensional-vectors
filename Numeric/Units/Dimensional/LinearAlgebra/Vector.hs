@@ -113,9 +113,16 @@ class VHList v l | v -> l, l -> v where
     toHList   :: v -> l
     fromHList :: l -> v
 
+{-
 instance VHList (Vec HNil a) HNil where  -- Can create empty vector.
     toHList   _ = HNil
     fromHList _ = ListVec []
+    -}
+
+instance VHList (Vec (HSing d) a) (HSing (Quantity d a))
+  where
+    toHList v = HCons (vHead v) HNil
+    fromHList (HCons x HNil) = vSing x
 
 instance VHList (Vec ds a) l => VHList (Vec (d:*:ds) a) (Quantity d a:*:l)
   where

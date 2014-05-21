@@ -1,8 +1,8 @@
 Name:                dimensional-vectors
-Version:             0.11.0.1
+Version:             0.12
 License:             BSD3
 License-File:        LICENSE
-Copyright:           Bjorn Buckwalter 2008-2013
+Copyright:           Bjorn Buckwalter 2008-2014
 Author:              Bjorn Buckwalter 
 Maintainer:          bjorn.buckwalter@gmail.com
 Stability:           experimental
@@ -30,7 +30,7 @@ Build-Depends:
     time,
     dimensional,
     numtype,
-    HList >= 0.2.1 && <0.3,
+    HList-classic >= 0.2.1 && <1.1,
     numeric-quest
 
 Exposed-Modules:
