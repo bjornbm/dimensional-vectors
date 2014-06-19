@@ -28,8 +28,8 @@ Build-Depends:
 
     base < 5, 
     time,
-    dimensional,
-    numtype,
+    dimensional-dk,
+    numtype-dk,
     HList-classic >= 0.2.1 && <1.1,
     numeric-quest
 

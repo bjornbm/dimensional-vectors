@@ -16,7 +16,7 @@ module Numeric.Units.Dimensional.LinearAlgebra.Operators where
 import Numeric.Units.Dimensional.LinearAlgebra.Vector
 import Numeric.Units.Dimensional.LinearAlgebra.Matrix
 import Data.HList
-import Numeric.Units.Dimensional.Prelude
+import Numeric.Units.Dimensional.DK.Prelude
 import Numeric.Units.Dimensional.LinearAlgebra.HListExtras (HNatNumType)
 import qualified Prelude
 

@@ -38,6 +38,8 @@ vectors/matrices.
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Numeric.Units.Dimensional.LinearAlgebra.Vector
   {- ( Vec
@@ -48,9 +50,9 @@ module Numeric.Units.Dimensional.LinearAlgebra.Vector
 import Data.List (intercalate)
 import Data.HList
 import Numeric.Units.Dimensional.LinearAlgebra.HListExtras
-import Numeric.NumType (PosType, toNum, Pos2)
-import Numeric.Units.Dimensional.Prelude
-import Numeric.Units.Dimensional (Dimensional (..), Quantity, Mul)
+import Numeric.NumType.DK (toNum, NumType (Pos2))
+import Numeric.Units.Dimensional.DK.Prelude
+import Numeric.Units.Dimensional.DK (Dimensional (Dimensional), Quantity, (*))
 import qualified Orthogonals as O
 import qualified Prelude as P
 
@@ -91,15 +93,15 @@ for converting to/from HLists and tuples.
 
 -- | Create a singleton vector.
 vSing :: Quantity d a -> Vec (HSing d) a
-vSing (Dimensional x) = ListVec [x]
+vSing x = ListVec [x /~ siUnit]
 
 -- | Prepend an element to the vector.
 vCons :: Quantity d a -> Vec ds a -> Vec (d:*:ds) a
-vCons (Dimensional x) (ListVec xs) = ListVec (x:xs)
+vCons x (ListVec xs) = ListVec ((x /~ siUnit):xs)
 
 -- | Return the first element of the vector.
 vHead :: Vec (d:*:ds) a -> Quantity d a
-vHead (ListVec xs) = Dimensional (head xs)
+vHead (ListVec xs) = head xs *~ siUnit
 
 -- | Drop the first element of the vector.
 vTail :: Vec (d:*:ds) a -> Vec ds a  -- Can create empty vector.
@@ -166,9 +168,8 @@ instance VTuple (Vec (d1:*:d2:*.d3) a)
 -- of a @NumType@. It would simplify the type signatures but users of
 -- dimensional are more likely to already have NumTypes in scope than
 -- @HNat@s.
-vElemAt :: (HNatNumType n' n, HLookupByHNat n' ds d)
-        => n -> Vec ds a -> Quantity d a
-vElemAt n (ListVec xs) = Dimensional (xs!!toNum n)
+vElemAt :: (HLookupByHNat (AsHNat) n ds d) => n -> Vec ds a -> Quantity d a
+vElemAt n (ListVec xs) = (xs!!toNum n) *~ siUnit
 
 
 -- Homogenity
@@ -178,7 +179,7 @@ vElemAt n (ListVec xs) = Dimensional (xs!!toNum n)
 class Homo ds d | ds -> d where
   -- | Converts a homogeneous vector to a list.
   toList :: Vec ds a -> [Quantity d a]
-  toList (ListVec xs) = map Dimensional xs
+  toList (ListVec xs) = map (*~ siUnit) xs
 instance Homo (HSing d) d
 instance Homo (d:*:ds) d => Homo (d:*:(d:*:ds)) d
 
@@ -233,13 +234,15 @@ elemSub = vZipWith (P.-)
 -- -------------------------------------
 
 data MulD
-instance Mul d1 d2 d3 => Apply  MulD (d1, d2) d3 where apply _ _ = undefined
+instance Apply  MulD (d1, d2) (d1 * d2) where apply _ _ = undefined
 
 -- | Multiplies each element i of the first argument vector by the
 -- corresponding element of the second argument.
 elemMul :: (HZipWith MulD ds1 ds2 ds3, Num a)
         => Vec ds1 a -> Vec ds2 a -> Vec ds3 a
 elemMul = vZipWith (P.*)
+
+{-
 
 -- Elementwise division of vectors
 -- -------------------------------
@@ -326,3 +329,4 @@ vNorm v = sqrt (v `dotProduct` v)
 vNormalize :: ( DotProduct ds ds d, Root d Pos2 d', Div DOne d' d''
               , HMap (MulD, d'') ds ds', RealFloat a ) => Vec ds a -> Vec ds' a
 vNormalize v = (_1 / vNorm v) `scaleVec` v
+-- -}

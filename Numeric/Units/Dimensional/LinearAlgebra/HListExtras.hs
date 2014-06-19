@@ -5,13 +5,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Extra type classes and instances functions for working with HLists.
 module Numeric.Units.Dimensional.LinearAlgebra.HListExtras where
 
 
-import Data.HList
-import Numeric.NumType (PosType, Zero, Pos)
+import Data.HList hiding (Proxy)
+import Data.Proxy
+import Numeric.NumType.DK (NumType (..), Succ, Pred)
 
 -- | Shorthand type operator for the last element in a HList type
 type a :*. b = a :*: b :*: HNil
@@ -57,11 +60,31 @@ data ConsEach
 instance HZipWith Cons xs vs vs' => Apply ConsEach (xs, vs) vs'
   where apply _ = uncurry (hZipWith Cons)
 
--- | Class for conversion from HList's @HNat@s to NumTypes @NumType@s.
-class (HNat h, PosType n) => HNatNumType h n | h -> n, n -> h where
-  fromHNat :: h -> n
-  fromHNat _ = undefined
-  toHNat :: n -> h
-  toHNat _ = undefined
-instance HNatNumType HZero Zero
-instance HNatNumType h n => HNatNumType (HSucc h) (Pos n)
+
+-- | Conversion from NumType's @NumType@s to HList's @HNat@s.
+type family AsHNat (n::NumType)
+  where
+    AsHNat Zero = HZero
+    AsHNat Pos1 = HSucc HZero
+    AsHNat Pos2 = HSucc (AsHNat Pos1)
+    AsHNat Pos3 = HSucc (AsHNat Pos2)
+    AsHNat Pos4 = HSucc (AsHNat Pos3)
+    AsHNat Pos5 = HSucc (AsHNat Pos4)
+    AsHNat Pos6 = HSucc (AsHNat Pos5)
+    AsHNat Pos7 = HSucc (AsHNat Pos6)
+    AsHNat Pos8 = HSucc (AsHNat Pos7)
+    AsHNat Pos9 = HSucc (AsHNat Pos8)
+    AsHNat (Pos10Plus n) = HSucc (AsHNat (Pred (Pos10Plus n)))
+-- | Conversion from NumType's @NumType@s to HList's @HNat@s.
+toHNat :: Proxy (n::NumType) -> AsHNat n
+toHNat _ = undefined
+
+-- | Conversion from HList's @HNat@s to NumType's @NumType@s.
+type family AsNumType n
+  where
+    AsNumType  HZero    = Zero
+    AsNumType (HSucc n) = Succ (AsNumType n)
+
+-- | Conversion from HList's @HNat@s to NumType's @NumType@s.
+fromHNat :: n -> Proxy (AsNumType n)
+fromHNat _ = undefined

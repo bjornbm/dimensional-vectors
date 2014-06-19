@@ -13,8 +13,8 @@ module Numeric.Units.Dimensional.LinearAlgebra.Matrix where
 
 import Data.List (intercalate)
 import Data.HList
-import Numeric.Units.Dimensional.Prelude
-import Numeric.Units.Dimensional (Dimensional (..))
+import Numeric.Units.Dimensional.DK.Prelude
+import Numeric.Units.Dimensional.DK (Dimensional (..))
 import Numeric.Units.Dimensional.LinearAlgebra.HListExtras
 import Numeric.Units.Dimensional.LinearAlgebra.Vector
 import qualified Orthogonals as O
