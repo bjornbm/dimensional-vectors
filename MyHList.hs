@@ -25,8 +25,8 @@ import Numeric.Units.Dimensional.DK.Prelude
 -- >>> let nat1 = Proxy :: Proxy 1
 -- >>> let nat2 = Proxy :: Proxy 2
 -- >>> let nat3 = Proxy :: Proxy 3
--- >>> let x = 2 *~ meter
--- >>> let y = 3 *~ kilo gram
+-- >>> let x = 2 *~ meter :: Length Double
+-- >>> let y = 3 *~ kilo gram :: Mass Double
 -- >>> let z = _1
 -- >>> let v = x <: (y <:. z)
 -- >>> let v' = (2 *~ meter) <: ((3 *~ kilo gram) <:. _1)
@@ -172,6 +172,20 @@ class BinaryC f d1 d2 a where
   type Binary f d1 d2 :: Dimension
   binary :: f -> Quantity d1 a -> Quantity d2 a -> Quantity (Binary f d1 d2) a
 
+-- | Type for making a binary operation unary, with the left argument
+  -- pre-supplied.
+  --
+  -- >>> unary (UnaryL x Div) y == binary Div x y
+  -- True
+data UnaryL d a f = UnaryL (Quantity d a) f
+
+-- | Type for making a binary operation unary, with the right argument
+  -- pre-supplied.
+  --
+  -- >>> unary (UnaryR Div y) x == binary Div x y
+  -- True
+data UnaryR f d a = UnaryR f (Quantity d a)
+
 instance BinaryC f d1 d2 a => UnaryC (UnaryR f d2 a) d1 a where
   type Unary (UnaryR f d2 a) d1 = Binary f d1 d2
   unary (UnaryR f y) x = binary f x y
@@ -180,18 +194,17 @@ instance BinaryC f d1 d2 a => UnaryC (UnaryL d1 a f) d2 a where
   type Unary (UnaryL d1 a f) d2 = Binary f d1 d2
   unary (UnaryL x f) y = binary f x y
 
-data UnaryL d a f = UnaryL (Quantity d a) f
-data UnaryR f d a = UnaryR f (Quantity d a)
-
--- >>> unary (Div, _2::Dimensionless Double) (4.0 *~ meter::Length Double)
+-- |
+-- >>> binary Div _2 (4.0 *~ meter)
+-- 0.5 m^-1
+-- >>> unary (UnaryR Div (_2::Dimensionless Double)) (4.0 *~ meter::Length Double)
 -- 2.0 m
 data Div = Div
-{-
-instance (d2 ~ (d1 / d), Fractional a) => UnaryC (Div, Quantity d a) d1 a
-  where
-    type Unary (Div, Quantity d a) d1 = d1 / d
-    unary (Div, y) x = x / y
-    -}
+
+instance Fractional a => BinaryC Div d1 d2 a where
+  type Binary Div d1 d2 = d1 / d2
+  binary Div x y = x / y
+
 
 -- |
 -- >>> binary Mul _2 (4.0 *~ meter)
@@ -199,16 +212,11 @@ instance (d2 ~ (d1 / d), Fractional a) => UnaryC (Div, Quantity d a) d1 a
 -- >>> unary (UnaryR Mul (_2::Dimensionless Double)) (4.0 *~ meter::Length Double)
 -- 8.0 m
 data Mul = Mul
-{-
-instance (d2 ~ (d1 * d), Num a) => UnaryC (Mul, Quantity d a) d1 a
-  where
-    type Unary (Mul, Quantity d a) d1 = d1 * d
-    unary (Mul, y) x = x * y
-    -}
-instance Num a => BinaryC Mul d1 d2 a
-  where
-    type Binary Mul d1 d2 = d1 * d2
-    binary Mul x y = x * y
+
+instance Num a => BinaryC Mul d1 d2 a where
+  type Binary Mul d1 d2 = d1 * d2
+  binary Mul x y = x * y
+
 
 class VMap f ds1 a where
   type VMap' f ds1 :: [Dimension]
