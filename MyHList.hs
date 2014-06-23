@@ -195,16 +195,13 @@ instance BinaryC f d1 d2 a => UnaryC (UnaryL d1 a f) d2 a where
   unary (UnaryL x f) y = binary f x y
 
 -- |
--- >>> binary Div _2 (4.0 *~ meter)
--- 0.5 m^-1
--- >>> unary (UnaryR Div (_2::Dimensionless Double)) (4.0 *~ meter::Length Double)
--- 2.0 m
+-- >>> binary Div x y == x / y
+-- True
 data Div = Div
 
 instance Fractional a => BinaryC Div d1 d2 a where
   type Binary Div d1 d2 = d1 / d2
   binary Div x y = x / y
-
 
 -- |
 -- >>> binary Mul _2 (4.0 *~ meter)
@@ -218,6 +215,27 @@ instance Num a => BinaryC Mul d1 d2 a where
   binary Mul x y = x * y
 
 
+-- |
+  -- >>> unary Neg x == negate x
+  -- True
+data Neg = Neg
+
+instance Num a => UnaryC Neg d a where
+  type Unary Neg d = d
+  unary Neg = negate
+
+-- |
+  -- >>> unary Rec x == x ^ neg1
+  -- True
+data Rec = Rec
+
+instance Fractional a => UnaryC Rec d a where
+  type Unary Rec d = Recip d
+  unary Rec x = _1 / x
+
+
+-- |
+  --
 class VMap f ds1 a where
   type VMap' f ds1 :: [Dimension]
   vMap :: f -> Vec ds1 a -> Vec (VMap' f ds1) a
