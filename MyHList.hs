@@ -72,6 +72,78 @@ vHead = vElemAt nat0
 vTail :: Vec (d1 ': d2 ': ds) a -> Vec (d2 ': ds) a
 vTail (ListVec xs) = ListVec (tail xs)
 
+
+{-
+Utility functions (do not export!)
+==================================
+Note that the type signatures permit coercion. The burden of verifying
+consistency with type signature rests on user. Care must be taken
+to specify expected/desired return type explicitly to be sure
+expected results are obtained. These functions should not be exported
+outside this module!
+-}
+
+-- | Map a function to the numeric representations of the elements
+-- of a vector. IMPORTANT: v1 v2 must have the same length!
+  --
+  -- >>> repMap (P.* 2) v == vMap (UnaryR Mul (_2::Dimensionless Double)) v
+  -- True
+repMap :: (a -> b) -> Vec v1 a -> Vec v2 b
+repMap f (ListVec xs) = ListVec (map f xs)
+
+-- | Zip the numeric representation of the elements using the provided
+-- function. IMPORTANT: v1 v2 v3 must have the same length!
+  --
+  -- >>> repZipWith (P.*) v v == vZipWith Mul v v
+  -- True
+  --
+repZipWith :: -- (VLength v1 ~ VLength v2, VLength v1 ~ VLength v3) =>
+              (a -> b -> c) -> Vec v1 a -> Vec v2 b -> Vec v3 c  -- Danger!
+repZipWith f (ListVec v1) (ListVec v2) = ListVec (zipWith f v1 v2)
+{-
+TODO: At least ensure that the vectors are of the same length as
+this ensures the most important invariant. The disadvantage is that
+it pollutes the type signatures of e.g. 'elemAdd'. Perhaps with a
+different underlying implementation these utility functions can be
+removed?
+-}
+
+-- Elementwise binary operators
+-- ============================
+
+-- | Elementwise addition of vectors. The vectors must have the
+-- same size and element types.
+  --
+  -- >>> elemAdd v v == scaleVec _2 v
+  -- True
+elemAdd :: Num a => Vec ds a -> Vec ds a -> Vec ds a
+elemAdd = repZipWith (P.+)
+
+-- | Elementwise subraction of vectors. The vectors must have the
+-- same size and element types.
+  --
+  -- >>> elemSub v v == scaleVec _0 v
+  -- True
+elemSub :: Num a => Vec ds a -> Vec ds a -> Vec ds a
+elemSub = repZipWith (P.-)
+
+
+-- Length
+-- ======
+
+type family VLength (ds::[Dimension]) :: Nat
+  where
+    VLength '[d] = 1
+    VLength (d ': ds) = VLength ds + 1
+
+-- |
+  -- >>> vLength v == nat3
+  -- True
+vLength :: Vec ds a -> Proxy (VLength ds)
+vLength _ = Proxy
+
+-- Lookup
+-- ======
 --deriving instance Show a => Show (Vec ds a)
 type family VElemAt (n::Nat) (ds::[Dimension]) :: Dimension
   where
@@ -257,31 +329,68 @@ instance (UnaryC f d1 a, VMap f (d2 ': ds) a, Fractional a) => VMap f (d1 ': d2 
 -- < 6.0e-3 m kg >
 -- >>> scaleVec (2*~gram) (_4 <:. 3 *~ meter)
 -- < 8.0e-3 kg, 6.0e-3 m kg >
+--
+-- TODO convert to prop.
+--
+-- >>> scaleVec x v == vMap (UnaryR Mul x) v
+-- True
 scaleVec :: (f ~ UnaryR Mul d a, VMap f ds a, Fractional a)
          => Quantity d a -> Vec ds a -> Vec (VMap' f ds) a
---scaleVec :: (VMap (Mul, Quantity d a) ds a, Fractional a)
---         => Quantity d a -> Vec ds a -> Vec (VMap' (Mul, Quantity d a) ds) a
-scaleVec x = vMap (UnaryR Mul x)
+scaleVec x v = repMap (P.* (x /~ siUnit)) v
+--scaleVec x = vMap (UnaryR Mul x)
 
 -- | Scale a vector by a dimensionless quantity. This avoids the trivial
 -- constraint @HMap (MulD, DOne) ds ds@ for this common case.
 --
 -- >>> scaleVec1 _2 (_4 <:. 3 *~ meter)
 -- < 8.0, 6.0 m >
+-- >>> scaleVec y v == vMap (UnaryR Mul y) v
+-- True
 scaleVec1 :: Fractional a => Dimensionless a -> Vec ds a -> Vec ds a
-scaleVec1 x (ListVec xs) = ListVec $ map ((x /~ one) P.*) xs
+scaleVec1 x v = repMap (P.* (x /~ one)) v
 
 
+class VZipWithC f ds1 ds2 a where
+  type VZipWith f ds1 ds2 :: [Dimension]
+  -- |
+    -- >>> vZipWith Mul (vSing x) (vSing z) == vSing (x * z)
+    -- True
+    -- >>> vZipWith Mul v v == (x * x) <: (y * y) <:. (z * z)
+    -- True
+  vZipWith :: f -> Vec ds1 a -> Vec ds2 a -> Vec (VZipWith f ds1 ds2) a
 
-class VZipWith f ds1 ds2 where
-  type VZW f ds1 ds2 :: [Dimension]
-  vZipWith :: f -> Vec ds1 a -> Vec ds2 a -> Vec (VZW f ds1 ds2) a
 
-{-
-instance VZipWith f '[d1] '[d2] where
-  type VZW f '[d1] '[d2] = '[Unary f (d1,d2)]
-  vZipWith f v1 v2 = unary f (vHead v1, vHead v2)
--}
+instance (BinaryC f d1 d2 a, Fractional a) => VZipWithC f '[d1] '[d2] a where
+  type VZipWith f '[d1] '[d2] = '[Binary f d1 d2]
+  vZipWith f v1 v2 = vSing $ binary f (vHead v1) (vHead v2)
+
+instance (VZipWithC f (d2 ': ds) (e2 ': es) a, BinaryC f d1 e1 a, Fractional a)
+      => VZipWithC f (d1 ': d2 ': ds) (e1 ': e2 ': es) a
+  where
+    type VZipWith f (d1 ': d2  ': ds) (e1 ': e2 ': es) = Binary f d1 e1 ': VZipWith f (d2 ': ds) (e2 ': es)
+    vZipWith f v1 v2 = binary f (vHead v1) (vHead v2) <: vZipWith f (vTail v1) (vTail v2)
+
+
+-- Elementwise multiplication of vectors
+-- -------------------------------------
+-- | Multiplies each element i of the first argument vector by the
+  -- corresponding element of the second argument.
+  --
+  -- >>> elemMul v v == vZipWith Mul v v
+  -- True
+elemMul :: Num a => Vec ds a -> Vec es a -> Vec (VZipWith Mul ds es) a
+elemMul = repZipWith (P.*)
+
+
+-- Elementwise division of vectors
+-- -------------------------------
+-- | Divides each element i of the first argument vector by the
+  -- corresponding element of the second argument.
+  --
+  -- >>> elemDiv v v == vZipWith Div v v
+  -- True
+elemDiv :: Fractional a => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
+elemDiv = repZipWith (P./)
 
 
 -- ---------------------------------
