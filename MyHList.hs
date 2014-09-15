@@ -34,10 +34,6 @@ import Numeric.Units.Dimensional.DK.Prelude
 infixr 5  <:, <:.
 
 
-data Vec' :: [Dimension] -> * -> * where
-  VSing :: Quantity d a -> Vec' '[d] a
-  (:>)  :: Quantity d a -> Vec' ds a -> Vec' (d ': ds) a
-
 newtype Vec (ds::[Dimension]) a = ListVec [a] deriving (Eq)
 
 -- Exported constructor functions.
@@ -72,6 +68,31 @@ vHead = vElemAt nat0
 vTail :: Vec (d1 ': d2 ': ds) a -> Vec (d2 ': ds) a
 vTail (ListVec xs) = ListVec (tail xs)
 
+
+{-
+-- Convert to/from Tuples
+-- ----------------------
+-- | Convert to/from tuple representation. This is primarily to allow taking
+-- advantage of the syntactic sugar tuples enjoy.
+class VTupleC v t | v -> t, t -> v where
+  toTuple   :: v -> t
+  fromTuple :: t -> v
+
+{-
+We can brute force the instances out to a reasonable degree. Presumably
+syntactic sugar loses its value if the vectors get to large as it is
+impractical to deal with them any way other than programmatically.
+-}
+
+instance VTuple (Vec (d1:*.d2) a) (Quantity d1 a, Quantity d2 a) where
+  toTuple v = (vElemAt zero v, vElemAt pos1 v)
+  fromTuple (x,y) = vCons x $ vSing y
+
+instance VTuple (Vec (d1:*:d2:*.d3) a) 
+                (Quantity d1 a, Quantity d2 a, Quantity d3  a) where
+  toTuple v = (vElemAt zero v, vElemAt pos1 v, vElemAt pos2 v)
+  fromTuple (x,y,z) = vCons x $ vCons y $ vSing z
+-}
 
 {-
 Utility functions (do not export!)
