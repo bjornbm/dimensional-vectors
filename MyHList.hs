@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE GADTSyntax #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -28,8 +29,10 @@ import Numeric.Units.Dimensional.DK.Prelude
 -- >>> let x = 2 *~ meter :: Length Double
 -- >>> let y = 3 *~ kilo gram :: Mass Double
 -- >>> let z = _1
--- >>> let v = x <: (y <:. z)
--- >>> let v' = (2 *~ meter) <: ((3 *~ kilo gram) <:. _1)
+-- >>> let v = x <: y <:. z
+-- >>> let v' = 2 *~ meter <: 3 *~ kilo gram <:. _1
+-- >>> let v'' = x <: x <:. x
+-- >>> let v''' = y <: x <:. x*y
 
 infixr 5  <:, <:.
 
@@ -358,7 +361,7 @@ instance (UnaryC f d1 a, VMap f (d2 ': ds) a, Fractional a) => VMap f (d1 ': d2 
 scaleVec :: (f ~ UnaryR Mul d a, VMap f ds a, Fractional a)
          => Quantity d a -> Vec ds a -> Vec (VMap' f ds) a
 scaleVec x v = repMap (P.* (x /~ siUnit)) v
---scaleVec x = vMap (UnaryR Mul x)
+--scaleVec x = vMap (UnaryR Mul x)  -- Rigorious implementation.
 
 -- | Scale a vector by a dimensionless quantity. This avoids the trivial
 -- constraint @HMap (MulD, DOne) ds ds@ for this common case.
@@ -413,6 +416,66 @@ elemMul = repZipWith (P.*)
 elemDiv :: Fractional a => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
 elemDiv = repZipWith (P./)
 
+
+-- Homogeneous vectors
+-- ===================
+
+class HomoC ds where
+  type Homo ds :: Dimension
+  toList :: Num a => Vec ds a -> [Quantity (Homo ds) a]
+  toList (ListVec xs) = xs *~~ siUnit
+
+instance HomoC '[d] where type Homo '[d] = d
+instance (Homo ds ~ d) => HomoC (d ': ds) where type Homo (d ': ds) = d
+
+-- | Compute the sum of all elements in a homogeneous vector.
+  --
+  -- >>> vSum v''
+  -- 6.0 m
+vSum :: (HomoC ds, Num a) => Vec ds a -> Quantity (Homo ds) a
+vSum = sum . toList
+
+
+-- Dot product
+-- ===========
+
+-- Type class based vector dot product. The class and associated type
+-- servers to simplify constraints and type signatures of @dotProduct@.
+  -- This can probably be done with a constraint synonym instead?
+class DotProductC (ds1::[Dimension]) (ds2::[Dimension]) where
+  type DotProduct ds1 ds2 :: Dimension
+  -- | Compute the dot product of two vectors.
+    --
+    -- >>> dotProduct' v v'''
+    -- 18.0 m kg
+  dotProduct' :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
+
+instance (HomoC (VZipWith Mul ds1 ds2)) => DotProductC ds1 ds2 where
+  type DotProduct ds1 ds2 = Homo (VZipWith Mul ds1 ds2)
+  dotProduct' v1 v2 = vSum (elemMul v1 v2)
+
+-- Approach using constraint synonyms.
+type DotProductC' ds1 ds2 = HomoC (VZipWith Mul ds1 ds2)
+type DotProduct'  ds1 ds2 = Homo  (VZipWith Mul ds1 ds2)
+-- | Compute the dot product of two vectors.
+  --
+  -- >>> dotProduct'' v v'''
+  -- 18.0 m kg
+dotProduct'' :: (DotProductC' ds1 ds2, Num a)
+             => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct' ds1 ds2) a
+dotProduct'' v1 v2 = vSum (elemMul v1 v2)
+
+-- | Compute the dot product of two vectors.
+  --
+  -- >>> dotProduct v v'''
+  -- 18.0 m kg
+  --
+  -- This version doesn't use a custom class/type.
+dotProduct :: (HomoC (VZipWith Mul ds1 ds2), Num a) =>
+  Vec ds1 a -> Vec ds2 a -> Quantity (Homo (VZipWith Mul ds1 ds2)) a
+dotProduct v1 v2 = vSum (elemMul v1 v2)
+
+-- Cross Product
 
 -- ---------------------------------
 
