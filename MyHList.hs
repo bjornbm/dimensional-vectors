@@ -187,30 +187,13 @@ vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
 
 
 
---vMap :: (Apply f d a) => f -> Vec [d] a -> [App f d a]
---vMap :: f -> Vec [d] a -> [App f d a]
---vMap f v = [apply f (vHead v)]
---vMap f v = f (vHead v) : vMap f (vTail v)
-
-class MapOut f (ds::[Dimension]) a where
-  type MapO f ds a
-  mapOut :: f -> Vec ds a -> [MapO f ds a]
-
-instance (Apply f d a, Num a) => MapOut f '[d] a where
-  type MapO f '[d] a = App f d a
-  mapOut f v = [apply f $ vHead v]
-
-instance ( Apply f d1 a, MapOut f (d2 ': ds) a, Num a
-         , App f d1 a ~ MapO f (d2 ': ds) a)
-        => MapOut f (d1 ': d2 ': ds) a
-  where
-    type MapO f (d1 ': d2 ': ds) a = MapO f (d2 ': ds) a -- :App f d a
-    mapOut f v = apply f (vHead v) : mapOut f (vTail v)
-
-
 class Apply f d a where
   type App f d a
   apply :: f -> Quantity d a -> App f d a
+
+instance (UnaryC f d a, d2 ~ Unary f d) => ApplyC f d a (Quantity d2 a)
+  where
+    applyC = unary
 
 -- |
 -- >>> applyC Show (4.2 *~ kilo meter) :: String
@@ -235,25 +218,56 @@ class ApplyC f d a b where applyC :: f -> Quantity d a -> b
 instance MapOutC ShowQ ds a String => Show (Vec ds a)
   where show = (\s -> "< " ++ s ++ " >")
              . intercalate ", "
-             . mapOutC Show
+             . mapOut Show
 
 
 -- |
--- >>> mapOutC (undefined :: ShowQ) (vSing $ 32.3 *~ meter) :: [String]
+-- >>> mapOut (undefined :: ShowQ) (vSing $ 32.3 *~ meter) :: [String]
 -- ["32.3 m"]
 --
--- >>> mapOutC (undefined :: ShowQ) (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
+-- >>> mapOut (undefined :: ShowQ) (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
 -- ["2.0e-3 kg","3.0","32.3 m"]
 --
-class MapOutC f ds a b where mapOutC :: f -> Vec ds a -> [b]
+class MapOutC f ds a b where mapOut :: f -> Vec ds a -> [b]
 
+-- Instances for ApplyC.
 instance (ApplyC f d a b, Num a) => MapOutC f '[d] a b where
-  mapOutC f v = [applyC f $ vHead v]
+  mapOut f v = applyC f (vHead v) : []
 
 instance ( ApplyC f d1 a b, MapOutC f (d2 ': ds) a b, Num a
     ) => MapOutC f (d1 ': d2 ': ds) a b
   where
-    mapOutC f v = applyC f (vHead v) : mapOutC f (vTail v)
+    mapOut f v = applyC f (vHead v) : mapOut f (vTail v)
+
+{-
+  -- The below is replaced by an instance of ApplyC for UnaryC.
+-- Instances for UnaryC
+instance ( UnaryC f d a, d2 ~ Unary f d, Num a
+    ) => MapOutC f '[d] a (Quantity d2 a)
+  where
+    mapOut f v = unary f (vHead v) : []
+
+instance ( MapOutC f (d2 ': ds) a (Quantity d2 a), UnaryC f d a, d2 ~ Unary f d, Num a
+    ) => MapOutC f (d ': d2 ': ds) a (Quantity d2 a)
+  where
+    mapOut f v = unary f (vHead v) : mapOut f (vTail v)
+-}
+
+
+class MapOutC' f (ds::[Dimension]) a where
+  type MapOut' f ds a
+  mapOut' :: f -> Vec ds a -> [MapOut' f ds a]
+
+instance (Apply f d a, Num a) => MapOutC' f '[d] a where
+  type MapOut' f '[d] a = App f d a
+  mapOut' f v = [apply f $ vHead v]
+
+instance ( Apply f d1 a, MapOutC' f (d2 ': ds) a, Num a
+         , App f d1 a ~ MapOut' f (d2 ': ds) a)
+        => MapOutC' f (d1 ': d2 ': ds) a
+  where
+    type MapOut' f (d1 ': d2 ': ds) a = MapOut' f (d2 ': ds) a -- :App f d a
+    mapOut' f v = apply f (vHead v) : mapOut' f (vTail v)
 
 -- --------------------------------------------------------------
 -- --------------------------------------------------------------
@@ -328,6 +342,15 @@ data Rec = Rec
 instance Fractional a => UnaryC Rec d a where
   type Unary Rec d = Recip d
   unary Rec x = _1 / x
+
+-- |
+  -- >>> unary Id x == x
+  -- True
+data Id = Id
+
+instance Num a => UnaryC Id d a where
+  type Unary Id d = d
+  unary Id = id
 
 
 -- |
@@ -453,6 +476,15 @@ class HomoC ds where
 
 instance HomoC '[d] where type Homo '[d] = d
 instance (Homo ds ~ d) => HomoC (d ': ds) where type Homo (d ': ds) = d
+
+-- | Principled implementation of 'toList'.
+  --
+  -- >>> toList v'' == toList' v''
+  -- True
+  --
+--toList' :: (MapOutC Id ds a (Quantity (Homo ds) a), Num a) => Vec ds a -> [Quantity (Homo ds) a]
+toList' :: (MapOutC Id ds a (Quantity d a), Num a) => Vec ds a -> [Quantity d a]
+toList' = mapOut Id
 
 -- | Compute the sum of all elements in a homogeneous vector.
   --
