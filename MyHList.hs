@@ -31,8 +31,10 @@ import Numeric.Units.Dimensional.DK.Prelude
 -- >>> let z = _1
 -- >>> let v = x <: y <:. z
 -- >>> let v' = 2 *~ meter <: 3 *~ kilo gram <:. _1
--- >>> let v'' = x <: x <:. x
+-- >>> let vh1 = x <: x <:. x
 -- >>> let v''' = y <: x <:. x*y
+-- >>> let vc3 = 3.0 *~ meter <: (2 *~ one) <:. (1 *~ one)
+-- >>> let vc4 = 1 *~ (meter / second) <: 2 *~ hertz <:. 3 *~ hertz
 
 infixr 5  <:, <:.
 
@@ -461,16 +463,16 @@ instance (Homo ds ~ d) => HomoC (d ': ds) where type Homo (d ': ds) = d
 
 -- | Convert a homogeneous vector to a list.
   --
-  -- >>> toList v''
+  -- >>> toList vh1
   -- [2.0 m,2.0 m,2.0 m]
-  -- >>> toList v'' == mapOut Id v''
+  -- >>> toList vh1 == mapOut Id vh1
   -- True
 toList :: (HomoC ds, Num a) => Vec ds a -> [Quantity (Homo ds) a]
 toList (ListVec xs) = xs *~~ siUnit
 
 -- | Principled implementation of 'toList'.
   --
-  -- >>> toList v'' == toList' v''
+  -- >>> toList vh1 == toList' vh1
   -- True
 toList' :: (MapOutC Id ds a) => Vec ds a -> [MapOut Id ds a]
 toList' = mapOut Id
@@ -478,16 +480,16 @@ toList' = mapOut Id
 
 -- | Compute the sum of all elements in a homogeneous vector.
   --
-  -- >>> vSum v'' == sum (toList v'')
+  -- >>> vSum vh1 == sum (toList vh1)
   -- True
-  -- >>> vSum v''
+  -- >>> vSum vh1
   -- 6.0 m
 vSum :: Num a => Vec ds a -> Quantity (Homo ds) a
 vSum (ListVec xs) = P.sum xs *~ siUnit
 
 -- | Principled implementation of 'sum'.
   --
-  -- >>> vSum v'' == vSum' v''
+  -- >>> vSum vh1 == vSum' vh1
   -- True
 vSum' :: (HomoC ds, Num a) => Vec ds a -> Quantity (Homo ds) a
 vSum' = sum . toList
@@ -533,6 +535,23 @@ instance ((b*f) ~ (e*c), (c*d) ~ (a*f), (a*e) ~ (d*b))
     , c P.* d P.- f P.* a
     , a P.* e P.- d P.* b
     ]
+
+-- | Principled implementation of 'crossProduct'.
+  --
+  -- >>> crossProduct vh1 vh1 == crossProduct' vh1 vh1
+  -- True
+  -- >>> crossProduct vc3 vc4 == crossProduct' vc3 vc4
+  -- True
+crossProduct' v1 v2 =  (b * f - e * c)
+                   <:  (c * d - f * a)
+                   <:. (a * e - d * b)
+  where 
+    a = vElemAt nat0 v1
+    b = vElemAt nat1 v1
+    c = vElemAt nat2 v1
+    d = vElemAt nat0 v2
+    e = vElemAt nat1 v2
+    f = vElemAt nat2 v2
 
 -- ---------------------------------
 
