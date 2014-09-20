@@ -405,6 +405,14 @@ instance (VZipWithC f (d2 ': ds) (e2 ': es) a, BinaryC f d1 e1 a, Fractional a)
 elemMul :: Num a => Vec ds a -> Vec es a -> Vec (VZipWith Mul ds es) a
 elemMul = repZipWith (P.*)
 
+-- | Principled implementation of elemMul'.
+  --
+  -- >>> elemMul v v' == elemMul' v v'
+  -- True
+elemMul' :: (VZipWithC Mul ds es a, Num a)
+         => Vec ds a -> Vec es a -> Vec (VZipWith Mul ds es) a
+elemMul' = vZipWith Mul
+
 
 -- Elementwise division of vectors
 -- -------------------------------
@@ -415,6 +423,14 @@ elemMul = repZipWith (P.*)
   -- True
 elemDiv :: Fractional a => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
 elemDiv = repZipWith (P./)
+
+-- | Principled implementation of elemDiv'.
+  --
+  -- >>> elemDiv v v' == elemDiv' v v'
+  -- True
+elemDiv' :: (VZipWithC Div ds es a, Num a)
+         => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
+elemDiv' = vZipWith Div
 
 
 -- Homogeneous vectors
@@ -430,50 +446,47 @@ instance (Homo ds ~ d) => HomoC (d ': ds) where type Homo (d ': ds) = d
 
 -- | Compute the sum of all elements in a homogeneous vector.
   --
+  -- >>> vSum v'' == sum (toList v'')
+  -- True
   -- >>> vSum v''
   -- 6.0 m
-vSum :: (HomoC ds, Num a) => Vec ds a -> Quantity (Homo ds) a
-vSum = sum . toList
+vSum :: Num a => Vec ds a -> Quantity (Homo ds) a
+vSum (ListVec xs) = P.sum xs *~ siUnit
+
+-- | Principled implementation of 'sum'.
+  --
+  -- >>> vSum v'' == vSum' v''
+  -- True
+vSum' :: (HomoC ds, Num a) => Vec ds a -> Quantity (Homo ds) a
+vSum' = sum . toList
 
 
 -- Dot product
 -- ===========
 
--- Type class based vector dot product. The class and associated type
--- servers to simplify constraints and type signatures of @dotProduct@.
-  -- This can probably be done with a constraint synonym instead?
-class DotProductC (ds1::[Dimension]) (ds2::[Dimension]) where
-  type DotProduct ds1 ds2 :: Dimension
-  -- | Compute the dot product of two vectors.
-    --
-    -- >>> dotProduct' v v'''
-    -- 18.0 m kg
-  dotProduct' :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
-
-instance (HomoC (VZipWith Mul ds1 ds2)) => DotProductC ds1 ds2 where
-  type DotProduct ds1 ds2 = Homo (VZipWith Mul ds1 ds2)
-  dotProduct' v1 v2 = vSum (elemMul v1 v2)
-
 -- Approach using constraint synonyms.
-type DotProductC' ds1 ds2 = HomoC (VZipWith Mul ds1 ds2)
-type DotProduct'  ds1 ds2 = Homo  (VZipWith Mul ds1 ds2)
--- | Compute the dot product of two vectors.
-  --
-  -- >>> dotProduct'' v v'''
-  -- 18.0 m kg
-dotProduct'' :: (DotProductC' ds1 ds2, Num a)
-             => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct' ds1 ds2) a
-dotProduct'' v1 v2 = vSum (elemMul v1 v2)
+type DotProductC ds1 ds2 = HomoC (VZipWith Mul ds1 ds2)
+type DotProduct  ds1 ds2 = Homo  (VZipWith Mul ds1 ds2)
 
 -- | Compute the dot product of two vectors.
   --
+  -- >>> dotProduct v v''' == vSum (elemMul v v''')
+  -- True
   -- >>> dotProduct v v'''
   -- 18.0 m kg
+dotProduct :: Num a =>
+  Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
+dotProduct (ListVec xs) (ListVec ys) = P.sum (zipWith (P.*) xs ys) *~ siUnit
+
+-- | Principled implementation of 'dotProduct'.
   --
-  -- This version doesn't use a custom class/type.
-dotProduct :: (HomoC (VZipWith Mul ds1 ds2), Num a) =>
-  Vec ds1 a -> Vec ds2 a -> Quantity (Homo (VZipWith Mul ds1 ds2)) a
-dotProduct v1 v2 = vSum (elemMul v1 v2)
+  -- >>> dotProduct v v''' == dotProduct' v v'''
+  -- True
+dotProduct' :: (DotProductC ds1 ds2, Num a) =>
+  Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
+dotProduct' v1 v2 = vSum (elemMul v1 v2)
+
+
 
 -- Cross Product
 
