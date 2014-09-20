@@ -186,17 +186,28 @@ vElemAt :: (KnownNat n, Num a)
 vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
 
 
+-- Apply with type.
+class ApplyC f d a where
+  type Apply f d a
+  apply :: f -> Quantity d a -> Apply f d a
 
-class Apply f d a where
-  type App f d a
-  apply :: f -> Quantity d a -> App f d a
+instance ApplyC Id d a where
+  type Apply Id d a = Quantity d a
+  apply _ = id
 
-instance (UnaryC f d a, d2 ~ Unary f d) => ApplyC f d a (Quantity d2 a)
+
+{-
+-- Apply with class.
+class ApplyC f d a b where applyC :: f -> Quantity d a -> b
+
+instance ( UnaryC f d a, d2 ~ Unary f d
+  ) => ApplyC f d a (Quantity d2 a)
   where
     applyC = unary
+-}
 
 -- |
--- >>> applyC Show (4.2 *~ kilo meter) :: String
+-- >>> apply Show (4.2 *~ kilo meter) :: String
 -- "4200.0 m"
 --
 -- >>> apply Show (42 *~ gram)
@@ -207,67 +218,41 @@ instance (UnaryC f d a, d2 ~ Unary f d) => ApplyC f d a (Quantity d2 a)
 --
 data ShowQ = Show
 
-instance (Show (Quantity d a)) => Apply ShowQ d a where
-  type App ShowQ d a = String
+instance Show (Quantity d a) => ApplyC ShowQ d a where
+  type Apply ShowQ d a = String
   apply _ = show
 
-instance Show (Quantity d a) => ApplyC ShowQ d a String where applyC _ = show
+--instance Show (Quantity d a) => ApplyC ShowQ d a String where applyC _ = show
 
-class ApplyC f d a b where applyC :: f -> Quantity d a -> b
 
-instance MapOutC ShowQ ds a String => Show (Vec ds a)
+-- |
+-- >>> mapOut Show (vSing $ 32.3 *~ meter) :: [String]
+-- ["32.3 m"]
+--
+-- >>> mapOut Show (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
+-- ["2.0e-3 kg","3.0","32.3 m"]
+--
+instance (MapOutC ShowQ ds a, MapOut ShowQ ds a ~ String) => Show (Vec ds a)
   where show = (\s -> "< " ++ s ++ " >")
              . intercalate ", "
              . mapOut Show
 
 
--- |
--- >>> mapOut (undefined :: ShowQ) (vSing $ 32.3 *~ meter) :: [String]
--- ["32.3 m"]
---
--- >>> mapOut (undefined :: ShowQ) (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
--- ["2.0e-3 kg","3.0","32.3 m"]
---
-class MapOutC f ds a b where mapOut :: f -> Vec ds a -> [b]
+-- | Map out a vector to a list.
+class MapOutC f (ds::[Dimension]) a where
+  type MapOut f ds a
+  mapOut :: f -> Vec ds a -> [MapOut f ds a]
 
--- Instances for ApplyC.
-instance (ApplyC f d a b, Num a) => MapOutC f '[d] a b where
-  mapOut f v = applyC f (vHead v) : []
+instance (ApplyC f d a, Num a) => MapOutC f '[d] a where
+  type MapOut f '[d] a = Apply f d a
+  mapOut f v = [apply f $ vHead v]
 
-instance ( ApplyC f d1 a b, MapOutC f (d2 ': ds) a b, Num a
-    ) => MapOutC f (d1 ': d2 ': ds) a b
+instance ( ApplyC f d1 a, MapOutC f (d2 ': ds) a, Num a
+         , Apply f d1 a ~ MapOut f (d2 ': ds) a)
+        => MapOutC f (d1 ': d2 ': ds) a
   where
-    mapOut f v = applyC f (vHead v) : mapOut f (vTail v)
-
-{-
-  -- The below is replaced by an instance of ApplyC for UnaryC.
--- Instances for UnaryC
-instance ( UnaryC f d a, d2 ~ Unary f d, Num a
-    ) => MapOutC f '[d] a (Quantity d2 a)
-  where
-    mapOut f v = unary f (vHead v) : []
-
-instance ( MapOutC f (d2 ': ds) a (Quantity d2 a), UnaryC f d a, d2 ~ Unary f d, Num a
-    ) => MapOutC f (d ': d2 ': ds) a (Quantity d2 a)
-  where
-    mapOut f v = unary f (vHead v) : mapOut f (vTail v)
--}
-
-
-class MapOutC' f (ds::[Dimension]) a where
-  type MapOut' f ds a
-  mapOut' :: f -> Vec ds a -> [MapOut' f ds a]
-
-instance (Apply f d a, Num a) => MapOutC' f '[d] a where
-  type MapOut' f '[d] a = App f d a
-  mapOut' f v = [apply f $ vHead v]
-
-instance ( Apply f d1 a, MapOutC' f (d2 ': ds) a, Num a
-         , App f d1 a ~ MapOut' f (d2 ': ds) a)
-        => MapOutC' f (d1 ': d2 ': ds) a
-  where
-    type MapOut' f (d1 ': d2 ': ds) a = MapOut' f (d2 ': ds) a -- :App f d a
-    mapOut' f v = apply f (vHead v) : mapOut' f (vTail v)
+    type MapOut f (d1 ': d2 ': ds) a = MapOut f (d2 ': ds) a -- :Apply f d a
+    mapOut f v = apply f (vHead v) : mapOut f (vTail v)
 
 -- --------------------------------------------------------------
 -- --------------------------------------------------------------
@@ -469,22 +454,27 @@ elemDiv' = vZipWith Div
 -- Homogeneous vectors
 -- ===================
 
-class HomoC ds where
-  type Homo ds :: Dimension
-  toList :: Num a => Vec ds a -> [Quantity (Homo ds) a]
-  toList (ListVec xs) = xs *~~ siUnit
-
+class HomoC (ds::[Dimension]) where type Homo ds :: Dimension
 instance HomoC '[d] where type Homo '[d] = d
 instance (Homo ds ~ d) => HomoC (d ': ds) where type Homo (d ': ds) = d
+
+
+-- | Convert a homogeneous vector to a list.
+  --
+  -- >>> toList v''
+  -- [2.0 m,2.0 m,2.0 m]
+  -- >>> toList v'' == mapOut Id v''
+  -- True
+toList :: (HomoC ds, Num a) => Vec ds a -> [Quantity (Homo ds) a]
+toList (ListVec xs) = xs *~~ siUnit
 
 -- | Principled implementation of 'toList'.
   --
   -- >>> toList v'' == toList' v''
   -- True
-  --
---toList' :: (MapOutC Id ds a (Quantity (Homo ds) a), Num a) => Vec ds a -> [Quantity (Homo ds) a]
-toList' :: (MapOutC Id ds a (Quantity d a), Num a) => Vec ds a -> [Quantity d a]
+toList' :: (MapOutC Id ds a) => Vec ds a -> [MapOut Id ds a]
 toList' = mapOut Id
+
 
 -- | Compute the sum of all elements in a homogeneous vector.
   --
@@ -529,8 +519,20 @@ dotProduct' :: (DotProductC ds1 ds2, Num a) =>
 dotProduct' v1 v2 = vSum (elemMul v1 v2)
 
 
-
 -- Cross Product
+-- =============
+class CrossProductC (ds1::[Dimension]) (ds2::[Dimension]) where
+  type CrossProduct ds1 ds2 :: [Dimension]
+  crossProduct :: Num a => Vec ds1 a -> Vec ds2 a -> Vec (CrossProduct ds1 ds2) a
+
+instance ((b*f) ~ (e*c), (c*d) ~ (a*f), (a*e) ~ (d*b))
+  => CrossProductC [a,b,c] [d,e,f] where
+  type CrossProduct [a,b,c] [d,e,f] = [b * f, c * d, a * e]
+  crossProduct (ListVec [a,b,c]) (ListVec [d,e,f]) = ListVec
+    [ b P.* f P.- e P.* c
+    , c P.* d P.- f P.* a
+    , a P.* e P.- d P.* b
+    ]
 
 -- ---------------------------------
 
