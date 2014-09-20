@@ -332,20 +332,22 @@ instance Fractional a => UnaryC Rec d a where
 
 -- |
   --
-class VMap f ds1 a where
-  type VMap' f ds1 :: [Dimension]
-  vMap :: f -> Vec ds1 a -> Vec (VMap' f ds1) a
+class VMapC f ds1 a where
+  type VMap f ds1 :: [Dimension]
+  vMap :: f -> Vec ds1 a -> Vec (VMap f ds1) a
 
-instance (UnaryC f d a, Fractional a) => VMap f '[d] a where
-  type VMap' f '[d] = '[Unary f d]
+instance (UnaryC f d a, Fractional a) => VMapC f '[d] a where
+  type VMap f '[d] = '[Unary f d]
   vMap f = vSing . unary f . vHead
 
-instance (UnaryC f d1 a, VMap f (d2 ': ds) a, Fractional a) => VMap f (d1 ': d2 ': ds) a
+instance (UnaryC f d1 a, VMapC f (d2 ': ds) a, Fractional a) => VMapC f (d1 ': d2 ': ds) a
   where
-    type VMap' f (d1 ': d2 ': ds) = Unary f d1 ': VMap' f (d2 ': ds)
+    type VMap f (d1 ': d2 ': ds) = Unary f d1 ': VMap f (d2 ': ds)
     vMap f v = unary f (vHead v) <: vMap f (vTail v)
 
 
+
+type ScaleVec d ds a = VMap (UnaryR Mul d a) ds
 -- | Scale a vector by multiplication. Each element of the vector is
 -- multiplied by the first argument.
 --
@@ -358,10 +360,18 @@ instance (UnaryC f d1 a, VMap f (d2 ': ds) a, Fractional a) => VMap f (d1 ': d2 
 --
 -- >>> scaleVec x v == vMap (UnaryR Mul x) v
 -- True
-scaleVec :: (f ~ UnaryR Mul d a, VMap f ds a, Fractional a)
-         => Quantity d a -> Vec ds a -> Vec (VMap' f ds) a
+scaleVec :: Fractional a
+         => Quantity d a -> Vec ds a -> Vec (ScaleVec d ds a) a
 scaleVec x v = repMap (P.* (x /~ siUnit)) v
---scaleVec x = vMap (UnaryR Mul x)  -- Rigorious implementation.
+
+-- | Principled implementation of 'scaleVec'.
+  --
+  -- >>> scaleVec x v == scaleVec' x v
+  -- True
+scaleVec' :: (f ~ UnaryR Mul d a, VMapC f ds a, Fractional a)
+          => Quantity d a -> Vec ds a -> Vec (ScaleVec d ds a) a
+          -- => Quantity d a -> Vec ds a -> Vec (VMap f ds) a
+scaleVec' x = vMap (UnaryR Mul x)  -- Rigorious implementation.
 
 -- | Scale a vector by a dimensionless quantity. This avoids the trivial
 -- constraint @HMap (MulD, DOne) ds ds@ for this common case.
