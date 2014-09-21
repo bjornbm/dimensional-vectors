@@ -27,15 +27,14 @@ import Nats
 -- >>> let y = 3 *~ kilo gram :: Mass Double
 -- >>> let z = _1
 -- >>> let v = x <: y <:. z
--- >>> let v' = 2 *~ meter <: 3 *~ kilo gram <:. _1
 -- >>> let vh1 = x <: x <:. x
--- >>> let v''' = y <: x <:. x*y
+-- >>> let vd2 = y <: x <:. x*y
 -- >>> let vc3 = 3.0 *~ meter <: (2 *~ one) <:. (1 *~ one)
 -- >>> let vc4 = 1 *~ (meter / second) <: 2 *~ hertz <:. 3 *~ hertz
 
 infixr 5  <:, <:.
 
--- | The vector type.
+-- | The vector type. TODO Make opaque.
   --
   -- Currently represented as a vanilla list. Will change to more
   -- powerful representation once the API is stable.
@@ -79,7 +78,6 @@ removed?
 
 -- Vector construction
 -- ===================
--- Exported constructor functions.
 
 -- | Construct a vector with a single element.
   --
@@ -149,6 +147,7 @@ vSnoc (ListVec xs) x = ListVec (xs ++ [x /~ siUnit])
   -- True
 vSnoc' :: Fractional a => Vec ds a -> Quantity d a -> Vec (VSnoc ds d) a
 vSnoc' v x = vAppend v (vSing x)
+
 
 
 -- Deconstruction
@@ -233,6 +232,88 @@ type family VElemAt (n::Nat) (ds::[Dimension]) :: Dimension
 vElemAt :: (KnownNat n, Num a)
         => Proxy (n::Nat) -> Vec ds a -> Quantity (VElemAt n ds) a
 vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
+
+
+
+-- Higher order functions
+-- ======================
+
+-- Mapping
+-- -------
+
+class VMapC f ds1 a where
+  type VMap f ds1 :: [Dimension]
+  -- | Map a unary operation over all elements of a vector.
+    --
+    -- >>> vMap Id v == v
+    -- True
+    -- >>> vMap (UnaryL x Mul) (y <:. z) == (x*y <:. x*z)
+    -- True
+  vMap :: f -> Vec ds1 a -> Vec (VMap f ds1) a
+
+instance (UnaryC f d a, Fractional a) => VMapC f '[d] a where
+  type VMap f '[d] = '[Unary f d]
+  vMap f = vSing . unary f . vHead
+
+instance (UnaryC f d1 a, VMapC f (d2 ': ds) a, Fractional a)
+  => VMapC f (d1 ': d2 ': ds) a
+  where
+    type VMap f (d1 ': d2 ': ds) = Unary f d1 ': VMap f (d2 ': ds)
+    vMap f v = unary f (vHead v) <: vMap f (vTail v)
+
+
+-- Zipping
+-- -------
+
+class VZipWithC f ds1 ds2 a where
+  type VZipWith f ds1 ds2 :: [Dimension]
+  -- | Combine elements from two vectors using a binary operation. This is
+    -- similar to the preludes @zipWith@.
+    --
+    -- >>> vZipWith Mul (vSing x) (vSing z) == vSing (x * z)
+    -- True
+    -- >>> vZipWith Mul v v == (x * x) <: (y * y) <:. (z * z)
+    -- True
+  vZipWith :: f -> Vec ds1 a -> Vec ds2 a -> Vec (VZipWith f ds1 ds2) a
+
+
+instance (BinaryC f d1 d2 a, Fractional a) => VZipWithC f '[d1] '[d2] a where
+  type VZipWith f '[d1] '[d2] = '[Binary f d1 d2]
+  vZipWith f v1 v2 = vSing $ binary f (vHead v1) (vHead v2)
+
+instance (VZipWithC f (d2 ': ds) (e2 ': es) a, BinaryC f d1 e1 a, Fractional a)
+      => VZipWithC f (d1 ': d2 ': ds) (e1 ': e2 ': es) a
+  where
+    type VZipWith f (d1 ': d2 ': ds) (e1 ': e2 ': es)
+      = Binary f d1 e1 ': VZipWith f (d2 ': ds) (e2 ': es)
+    vZipWith f v1 v2 = binary f (vHead v1) (vHead v2) <: vZipWith f (vTail v1) (vTail v2)
+
+
+-- Mapping out to a list
+-- ---------------------
+
+class MapOutC f (ds::[Dimension]) a where
+  type MapOut f ds a
+  -- | Map out a vector to a list by mapping an operation to each element
+    -- in the vector. The operation must have the same return type for each
+    -- element.
+    --
+    -- >>> mapOut Show (vSing $ 32.3 *~ meter) :: [String]
+    -- ["32.3 m"]
+    -- >>> mapOut Show (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
+    -- ["2.0e-3 kg","3.0","32.3 m"]
+  mapOut :: f -> Vec ds a -> [MapOut f ds a]
+
+instance (ApplyC f d a, Num a) => MapOutC f '[d] a where
+  type MapOut f '[d] a = Apply f d a
+  mapOut f v = [apply f $ vHead v]
+
+instance ( ApplyC f d1 a, MapOutC f (d2 ': ds) a, Num a
+         , Apply f d1 a ~ MapOut f (d2 ': ds) a)
+        => MapOutC f (d1 ': d2 ': ds) a
+  where
+    type MapOut f (d1 ': d2 ': ds) a = MapOut f (d2 ': ds) a -- :Apply f d a
+    mapOut f v = apply f (vHead v) : mapOut f (vTail v)
 
 
 
@@ -368,6 +449,7 @@ scaleVec1 :: Fractional a => Dimensionless a -> Vec ds a -> Vec ds a
 scaleVec1 x v = repMap (P.* (x /~ one)) v
 
 
+
 -- Elementwise binary operators
 -- ============================
 
@@ -416,7 +498,7 @@ elemMul = repZipWith (P.*)
 
 -- | Principled implementation of elemMul'.
   --
-  -- >>> elemMul v v' == elemMul' v v'
+  -- >>> elemMul v vc4 == elemMul' v vc4
   -- True
 elemMul' :: (VZipWithC Mul ds es a, Num a)
          => Vec ds a -> Vec es a -> Vec (VZipWith Mul ds es) a
@@ -427,110 +509,35 @@ elemMul' = vZipWith Mul
   -- Divides each element i of the first argument vector by the
   -- corresponding element of the second argument.
   --
-  -- >>> elemDiv v v == vZipWith Div v v
+  -- >>> elemDiv v v
+  -- < 1.0, 1.0, 1.0 >
+  -- >>> elemDiv v vc4 == vZipWith Div v vc4
   -- True
 elemDiv :: Fractional a => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
 elemDiv = repZipWith (P./)
 
 -- | Principled implementation of elemDiv'.
   --
-  -- >>> elemDiv v v' == elemDiv' v v'
+  -- >>> elemDiv v vc4 == elemDiv' v vc4
   -- True
 elemDiv' :: (VZipWithC Div ds es a, Num a)
          => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
 elemDiv' = vZipWith Div
 
 
-
--- Higher order functions
--- ======================
-
-
-
--- | Map out a vector to a list.
-  --
-  -- >>> mapOut Show (vSing $ 32.3 *~ meter) :: [String]
-  -- ["32.3 m"]
-  -- >>> mapOut Show (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
-  -- ["2.0e-3 kg","3.0","32.3 m"]
-class MapOutC f (ds::[Dimension]) a where
-  type MapOut f ds a
-  mapOut :: f -> Vec ds a -> [MapOut f ds a]
-
-instance (ApplyC f d a, Num a) => MapOutC f '[d] a where
-  type MapOut f '[d] a = Apply f d a
-  mapOut f v = [apply f $ vHead v]
-
-instance ( ApplyC f d1 a, MapOutC f (d2 ': ds) a, Num a
-         , Apply f d1 a ~ MapOut f (d2 ': ds) a)
-        => MapOutC f (d1 ': d2 ': ds) a
-  where
-    type MapOut f (d1 ': d2 ': ds) a = MapOut f (d2 ': ds) a -- :Apply f d a
-    mapOut f v = apply f (vHead v) : mapOut f (vTail v)
-
-
--- Mapping
--- -------
-
-class VMapC f ds1 a where
-  type VMap f ds1 :: [Dimension]
-  -- | Map a unary operation over all elements of a vector.
-    --
-    -- >>> vMap Id v == v
-    -- True
-    -- >>> vMap (UnaryL x Mul) (y <:. z) == (x*y <:. x*z)
-    -- True
-  vMap :: f -> Vec ds1 a -> Vec (VMap f ds1) a
-
-instance (UnaryC f d a, Fractional a) => VMapC f '[d] a where
-  type VMap f '[d] = '[Unary f d]
-  vMap f = vSing . unary f . vHead
-
-instance (UnaryC f d1 a, VMapC f (d2 ': ds) a, Fractional a)
-  => VMapC f (d1 ': d2 ': ds) a
-  where
-    type VMap f (d1 ': d2 ': ds) = Unary f d1 ': VMap f (d2 ': ds)
-    vMap f v = unary f (vHead v) <: vMap f (vTail v)
-
-
--- Zipping
--- -------
-
-class VZipWithC f ds1 ds2 a where
-  type VZipWith f ds1 ds2 :: [Dimension]
-  -- | Combine elements from two vectors using a binary operation. This is
-    -- similar to the preludes @zipWith@.
-    --
-    -- >>> vZipWith Mul (vSing x) (vSing z) == vSing (x * z)
-    -- True
-    -- >>> vZipWith Mul v v == (x * x) <: (y * y) <:. (z * z)
-    -- True
-  vZipWith :: f -> Vec ds1 a -> Vec ds2 a -> Vec (VZipWith f ds1 ds2) a
-
-
-instance (BinaryC f d1 d2 a, Fractional a) => VZipWithC f '[d1] '[d2] a where
-  type VZipWith f '[d1] '[d2] = '[Binary f d1 d2]
-  vZipWith f v1 v2 = vSing $ binary f (vHead v1) (vHead v2)
-
-instance (VZipWithC f (d2 ': ds) (e2 ': es) a, BinaryC f d1 e1 a, Fractional a)
-      => VZipWithC f (d1 ': d2 ': ds) (e1 ': e2 ': es) a
-  where
-    type VZipWith f (d1 ': d2 ': ds) (e1 ': e2 ': es)
-      = Binary f d1 e1 ': VZipWith f (d2 ': ds) (e2 ': es)
-    vZipWith f v1 v2 = binary f (vHead v1) (vHead v2) <: vZipWith f (vTail v1) (vTail v2)
-
-
+-- Binary operations
+-- =================
 
 -- Dot product
--- ===========
+-- -----------
 
 type DotProduct ds1 ds2 = Homo (VZipWith Mul ds1 ds2)
 
 -- | Compute the dot product of two vectors.
   --
-  -- >>> dotProduct v v''' == vSum (elemMul v v''')
+  -- >>> dotProduct v vd2 == vSum (elemMul v vd2)
   -- True
-  -- >>> dotProduct v v'''
+  -- >>> dotProduct v vd2
   -- 18.0 m kg
 dotProduct :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
 dotProduct (ListVec xs) (ListVec ys) = P.sum (zipWith (P.*) xs ys) *~ siUnit
@@ -539,14 +546,15 @@ dotProduct (ListVec xs) (ListVec ys) = P.sum (zipWith (P.*) xs ys) *~ siUnit
 
 -- | Principled implementation of 'dotProduct'.
   --
-  -- >>> dotProduct v v''' == dotProduct' v v'''
+  -- >>> dotProduct v vd2 == dotProduct' v vd2
   -- True
 dotProduct' :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
 dotProduct' v1 v2 = vSum (elemMul v1 v2)
 
 
 -- Cross Product
--- =============
+-- -------------
+
 -- TODO Decide which of the below implementations to use. In particular
 -- whether the 'CrossProductC' and 'CrossProduct' synonyms are worthwhile,
 -- or if the signatures of the principled implementations are good enough.
