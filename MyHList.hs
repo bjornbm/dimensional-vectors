@@ -19,13 +19,10 @@ import Data.List (intercalate)
 import Data.Proxy
 import GHC.TypeLits hiding (type (*))
 import Numeric.Units.Dimensional.DK.Prelude
+import Nats
 
 -- $setup
 -- >>> :set -XDataKinds
--- >>> let nat0 = Proxy :: Proxy 0
--- >>> let nat1 = Proxy :: Proxy 1
--- >>> let nat2 = Proxy :: Proxy 2
--- >>> let nat3 = Proxy :: Proxy 3
 -- >>> let x = 2 *~ meter :: Length Double
 -- >>> let y = 3 *~ kilo gram :: Mass Double
 -- >>> let z = _1
@@ -39,6 +36,9 @@ import Numeric.Units.Dimensional.DK.Prelude
 infixr 5  <:, <:.
 
 -- | The vector type.
+  --
+  -- Currently represented as a vanilla list. Will change to more
+  -- powerful representation once the API is stable.
 newtype Vec (ds::[Dimension]) a = ListVec [a] deriving (Eq)
 
 {-
@@ -187,13 +187,14 @@ type family VTail (ds::[Dimension]) :: [Dimension]
 
 
 -- Dlist style (last, init)
--- ========================
+-- ------------------------
 
 type family VInit ds :: [Dimension] where
   VInit '[d1, d2] = '[d1]
   VInit (d ': ds) = d ': VInit ds
 
--- |
+-- | Drop the last element of the vector.
+  --
   -- >>> vInit v == x <:. y
   -- True
   -- >>> vInit (vSnoc v x) == v
@@ -205,7 +206,8 @@ type family VLast ds :: Dimension where
   VLast '[d] = d
   VLast (d ': ds) = VLast ds
 
--- |
+-- | Return the last element of the vector.
+  --
   -- >>> vLast v == z
   -- True
   -- >>> vLast (vSnoc v x) == x
@@ -234,10 +236,14 @@ vElemAt :: (KnownNat n, Num a)
 vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
 
 
--- Forth style rot
--- ===============
 
--- | Rotates a vector, so that @<x,y,z> -> <y,z,x>@.
+-- Unary (single vector) operations
+-- ================================
+
+-- Forth style rot
+-- ---------------
+
+-- | Rotate a vector, so that @<x,y,z> -> <y,z,x>@.
   --
   -- >>> rot v
   -- < 3.0 kg, 1.0, 2.0 m >
@@ -258,30 +264,7 @@ rot' :: Fractional a => Vec (d ': d2 ': ds) a -> Vec (VSnoc (d2 ': ds) d) a
 rot' v = vTail v `vSnoc` vHead v
 
 
-{-
--- Convert to/from Tuples
--- ----------------------
--- | Convert to/from tuple representation. This is primarily to allow taking
--- advantage of the syntactic sugar tuples enjoy.
-class VTupleC v t | v -> t, t -> v where
-  toTuple   :: v -> t
-  fromTuple :: t -> v
 
-{-
-We can brute force the instances out to a reasonable degree. Presumably
-syntactic sugar loses its value if the vectors get to large as it is
-impractical to deal with them any way other than programmatically.
--}
-
-instance VTuple (Vec (d1:*.d2) a) (Quantity d1 a, Quantity d2 a) where
-  toTuple v = (vElemAt zero v, vElemAt pos1 v)
-  fromTuple (x,y) = vCons x $ vSing y
-
-instance VTuple (Vec (d1:*:d2:*.d3) a) 
-                (Quantity d1 a, Quantity d2 a, Quantity d3  a) where
-  toTuple v = (vElemAt zero v, vElemAt pos1 v, vElemAt pos2 v)
-  fromTuple (x,y,z) = vCons x $ vCons y $ vSing z
--}
 
 -- Elementwise binary operators
 -- ============================
@@ -756,10 +739,6 @@ crossProduct' v1 v2 =  (c * g - f * d)
 
 -- ---------------------------------
 
-nat0 = Proxy :: Proxy 0
-nat1 = Proxy :: Proxy 1
-nat2 = Proxy :: Proxy 2
-nat3 = Proxy :: Proxy 3
 
 test = let
     x = 2 *~ meter
