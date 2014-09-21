@@ -24,8 +24,7 @@ type Q = Quantity     -- For convenience.
 ve n v = vElemAt n v  -- For convenience.
 
 -- Convert to/from Tuples
--- ----------------------
-
+-- ======================
 
 -- | Conversion to tuple representation. This is primarily to allow taking
 -- advantage of the syntactic sugar tuples enjoy, e.g. for pattern matching.
@@ -47,6 +46,10 @@ class TupleVC t where
     -- >>> fromTuple (x,y,z)
     -- < 2.0 m, 3.0 kg, 1.0 >
   fromTuple :: Fractional (VNum t) => t -> Vec (TupleV t) (VNum t)
+
+
+-- Instances
+-- ---------
 
 {-
 We can brute force the instances out to a reasonable degree. Presumably
