@@ -240,10 +240,25 @@ vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
 -- Unary (single vector) operations
 -- ================================
 
+-- Length
+-- ------
+
+type family VLength (ds::[Dimension]) :: Nat
+  where
+    VLength '[d] = 1
+    VLength (d ': ds) = VLength ds + 1
+
+-- | Return the length of a vector.
+  -- >>> vLength v == nat3
+  -- True
+vLength :: Vec ds a -> Proxy (VLength ds)
+vLength _ = Proxy
+
+
 -- Forth style rot
 -- ---------------
 
--- | Rotate a vector, so that @<x,y,z> -> <y,z,x>@.
+-- | Rotate a vector so that @<x,y,z> -> <y,z,x>@.
   --
   -- >>> rot v
   -- < 3.0 kg, 1.0, 2.0 m >
@@ -265,6 +280,45 @@ rot' v = vTail v `vSnoc` vHead v
 
 
 
+-- Scaling
+-- -------
+
+type ScaleVec d ds a = VMap (UnaryR Mul d a) ds
+
+-- | Scale a vector by multiplication. Each element of the vector is
+  -- multiplied by the first argument.
+  --
+  -- >>> scaleVec (2*~gram) (vSing $ 3 *~ meter)
+  -- < 6.0e-3 m kg >
+  -- >>> scaleVec (2*~gram) (_4 <:. 3 *~ meter)
+  -- < 8.0e-3 kg, 6.0e-3 m kg >
+  --
+  -- TODO convert to prop.
+  --
+  -- >>> scaleVec x v == vMap (UnaryR Mul x) v
+  -- True
+scaleVec :: Fractional a
+         => Quantity d a -> Vec ds a -> Vec (ScaleVec d ds a) a
+scaleVec x v = repMap (P.* (x /~ siUnit)) v
+
+-- | Principled implementation of 'scaleVec'.
+  --
+  -- >>> scaleVec x v == scaleVec' x v
+  -- True
+scaleVec' :: (VMapC (UnaryR Mul d a) ds a, Fractional a)
+          => Quantity d a -> Vec ds a -> Vec (ScaleVec d ds a) a
+scaleVec' x = vMap (UnaryR Mul x)  -- Rigorious implementation.
+
+-- | Scale a vector by a dimensionless quantity. This avoids the trivial
+  -- constraint @HMap (MulD, DOne) ds ds@ for this common case.
+  --
+  -- >>> scaleVec1 _2 (_4 <:. 3 *~ meter)
+  -- < 8.0, 6.0 m >
+  -- >>> scaleVec y v == vMap (UnaryR Mul y) v
+  -- True
+scaleVec1 :: Fractional a => Dimensionless a -> Vec ds a -> Vec ds a
+scaleVec1 x v = repMap (P.* (x /~ one)) v
+
 
 -- Elementwise binary operators
 -- ============================
@@ -285,6 +339,7 @@ elemAdd' :: (Num a, VZipWithC Add ds ds a, VZipWith Add ds ds ~ ds)
          => Vec ds a -> Vec ds a -> Vec ds a
 elemAdd' v1 v2 = vZipWith Add v1 v2
 
+
 -- | Elementwise subraction of vectors. The vectors must have the
 -- same size and element types.
   --
@@ -302,20 +357,45 @@ elemSub' :: (Num a, VZipWithC Sub ds ds a, VZipWith Sub ds ds ~ ds)
 elemSub' v1 v2 = vZipWith Sub v1 v2
 
 
--- Length
--- ======
-
-type family VLength (ds::[Dimension]) :: Nat
-  where
-    VLength '[d] = 1
-    VLength (d ': ds) = VLength ds + 1
-
--- |
-  -- >>> vLength v == nat3
+-- | Elementwise multiplication of vectors.
+  -- Multiplies each element i of the first argument vector by the
+  -- corresponding element of the second argument.
+  --
+  -- >>> elemMul v v == vZipWith Mul v v
   -- True
-vLength :: Vec ds a -> Proxy (VLength ds)
-vLength _ = Proxy
+elemMul :: Num a => Vec ds a -> Vec es a -> Vec (VZipWith Mul ds es) a
+elemMul = repZipWith (P.*)
 
+-- | Principled implementation of elemMul'.
+  --
+  -- >>> elemMul v v' == elemMul' v v'
+  -- True
+elemMul' :: (VZipWithC Mul ds es a, Num a)
+         => Vec ds a -> Vec es a -> Vec (VZipWith Mul ds es) a
+elemMul' = vZipWith Mul
+
+
+-- | Elementwise division of vectors 
+  -- Divides each element i of the first argument vector by the
+  -- corresponding element of the second argument.
+  --
+  -- >>> elemDiv v v == vZipWith Div v v
+  -- True
+elemDiv :: Fractional a => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
+elemDiv = repZipWith (P./)
+
+-- | Principled implementation of elemDiv'.
+  --
+  -- >>> elemDiv v v' == elemDiv' v v'
+  -- True
+elemDiv' :: (VZipWithC Div ds es a, Num a)
+         => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
+elemDiv' = vZipWith Div
+
+
+
+-- Higher order functions
+-- ======================
 
 -- |
 -- >>> mapOut Show (vSing $ 32.3 *~ meter) :: [String]
@@ -367,43 +447,6 @@ instance (UnaryC f d1 a, VMapC f (d2 ': ds) a, Fractional a) => VMapC f (d1 ': d
 
 
 
-type ScaleVec d ds a = VMap (UnaryR Mul d a) ds
--- | Scale a vector by multiplication. Each element of the vector is
--- multiplied by the first argument.
---
--- >>> scaleVec (2*~gram) (vSing $ 3 *~ meter)
--- < 6.0e-3 m kg >
--- >>> scaleVec (2*~gram) (_4 <:. 3 *~ meter)
--- < 8.0e-3 kg, 6.0e-3 m kg >
---
--- TODO convert to prop.
---
--- >>> scaleVec x v == vMap (UnaryR Mul x) v
--- True
-scaleVec :: Fractional a
-         => Quantity d a -> Vec ds a -> Vec (ScaleVec d ds a) a
-scaleVec x v = repMap (P.* (x /~ siUnit)) v
-
--- | Principled implementation of 'scaleVec'.
-  --
-  -- >>> scaleVec x v == scaleVec' x v
-  -- True
-scaleVec' :: (f ~ UnaryR Mul d a, VMapC f ds a, Fractional a)
-          => Quantity d a -> Vec ds a -> Vec (ScaleVec d ds a) a
-          -- => Quantity d a -> Vec ds a -> Vec (VMap f ds) a
-scaleVec' x = vMap (UnaryR Mul x)  -- Rigorious implementation.
-
--- | Scale a vector by a dimensionless quantity. This avoids the trivial
--- constraint @HMap (MulD, DOne) ds ds@ for this common case.
---
--- >>> scaleVec1 _2 (_4 <:. 3 *~ meter)
--- < 8.0, 6.0 m >
--- >>> scaleVec y v == vMap (UnaryR Mul y) v
--- True
-scaleVec1 :: Fractional a => Dimensionless a -> Vec ds a -> Vec ds a
-scaleVec1 x v = repMap (P.* (x /~ one)) v
-
-
 class VZipWithC f ds1 ds2 a where
   type VZipWith f ds1 ds2 :: [Dimension]
   -- |
@@ -425,43 +468,6 @@ instance (VZipWithC f (d2 ': ds) (e2 ': es) a, BinaryC f d1 e1 a, Fractional a)
     vZipWith f v1 v2 = binary f (vHead v1) (vHead v2) <: vZipWith f (vTail v1) (vTail v2)
 
 
--- Elementwise multiplication of vectors
--- -------------------------------------
--- | Multiplies each element i of the first argument vector by the
-  -- corresponding element of the second argument.
-  --
-  -- >>> elemMul v v == vZipWith Mul v v
-  -- True
-elemMul :: Num a => Vec ds a -> Vec es a -> Vec (VZipWith Mul ds es) a
-elemMul = repZipWith (P.*)
-
--- | Principled implementation of elemMul'.
-  --
-  -- >>> elemMul v v' == elemMul' v v'
-  -- True
-elemMul' :: (VZipWithC Mul ds es a, Num a)
-         => Vec ds a -> Vec es a -> Vec (VZipWith Mul ds es) a
-elemMul' = vZipWith Mul
-
-
--- Elementwise division of vectors
--- -------------------------------
--- | Divides each element i of the first argument vector by the
-  -- corresponding element of the second argument.
-  --
-  -- >>> elemDiv v v == vZipWith Div v v
-  -- True
-elemDiv :: Fractional a => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
-elemDiv = repZipWith (P./)
-
--- | Principled implementation of elemDiv'.
-  --
-  -- >>> elemDiv v v' == elemDiv' v v'
-  -- True
-elemDiv' :: (VZipWithC Div ds es a, Num a)
-         => Vec ds a -> Vec es a -> Vec (VZipWith Div ds es) a
-elemDiv' = vZipWith Div
-
 
 -- Homogeneous vectors
 -- ===================
@@ -475,7 +481,7 @@ instance (Homo ds ~ d) => HomoC (d ': ds) where type Homo (d ': ds) = d
   --
   -- >>> toList vh1
   -- [2.0 m,2.0 m,2.0 m]
-  -- >>> toList vh1 == mapOut (Un Id) vh1
+  -- >>> toList vh1 == mapOut Id vh1
   -- True
 toList :: (HomoC ds, Num a) => Vec ds a -> [Quantity (Homo ds) a]
 toList (ListVec xs) = xs *~~ siUnit
@@ -484,8 +490,8 @@ toList (ListVec xs) = xs *~~ siUnit
   --
   -- >>> toList vh1 == toList' vh1
   -- True
-toList' :: (MapOutC (Un Id) ds a) => Vec ds a -> [MapOut (Un Id) ds a]
-toList' = mapOut (Un Id)
+toList' :: (MapOutC Id ds a) => Vec ds a -> [MapOut Id ds a]
+toList' = mapOut Id
 
 
 -- | Compute the sum of all elements in a homogeneous vector.
@@ -600,18 +606,3 @@ crossProduct' v1 v2 =  (c * g - f * d)
     e = vElemAt nat0 v2
     f = vElemAt nat1 v2
     g = vElemAt nat2 v2
-
--- ---------------------------------
-
-
-test = let
-    x = 2 *~ meter
-    y = 3 *~ kilo gram
-    z = _1
-    v = x <: (y <:. z)
-    v' = (2 *~ meter) <: ((3 *~ kilo gram) <:. _1)
-  in do
-  print $ x == vElemAt nat0 v
-  print $ y == vElemAt nat1 v
-  print $ z == vElemAt nat2 v
-  print $ v == v'

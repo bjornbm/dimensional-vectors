@@ -168,11 +168,11 @@ instance UnaryC f d a => ApplyC (Un f) d a where
   type Apply (Un f) d a = Quantity (Unary f d) a
   apply (Un f) = unary f
 
-{-
+
+-- | For convenience to avoid the 'Un' wrapper for 'Id'.
 instance ApplyC Id d a where
   type Apply Id d a = Quantity d a
   apply Id = id
-  -}
 
 
 -- | The show operation.
