@@ -18,6 +18,7 @@ import qualified Prelude as P
 import Data.List (intercalate)
 import Data.Proxy
 import GHC.TypeLits hiding (type (*))
+import Numeric.NumType.DK (NumType (Pos2))
 import Numeric.Units.Dimensional.DK.Prelude
 import Apply
 import Nats
@@ -27,10 +28,12 @@ import Nats
 -- >>> let y = 3 *~ kilo gram :: Mass Double
 -- >>> let z = _1
 -- >>> let v = x <: y <:. z
--- >>> let vh1 = x <: x <:. x
+-- >>> let vh1 = y <: y <:. y
+-- >>> let vh2 = x <: 1 *~ meter <:. 4 *~ meter
 -- >>> let vd2 = y <: x <:. x*y
 -- >>> let vc3 = 3.0 *~ meter <: (2 *~ one) <:. (1 *~ one)
 -- >>> let vc4 = 1 *~ (meter / second) <: 2 *~ hertz <:. 3 *~ hertz
+-- >>> let f = (*) :: Length Double -> Mass Double -> FirstMassMoment Double
 
 infixr 5  <:, <:.
 
@@ -289,6 +292,30 @@ instance (VZipWithC f (d2 ': ds) (e2 ': es) a, BinaryC f d1 e1 a, Fractional a)
     vZipWith f v1 v2 = binary f (vHead v1) (vHead v2) <: vZipWith f (vTail v1) (vTail v2)
 
 
+-- Iteration
+-- ---------
+
+class VIterateC f (ds::[Dimension]) a where
+  type VIterate f ds a
+  -- | Iterate a function over the elements of a vector. This can
+    -- be considered a form of uncurrying so the function operates
+    -- on a vector.
+    --
+    -- >>> vIterate f (x <:. y) == f x y
+    -- True
+    -- >>> vIterate f (x <:. y)
+    -- 6.0 m kg
+  vIterate :: Num a => f -> Vec ds a -> VIterate f ds a
+
+instance (ApplyC f d a) => VIterateC f '[d] a where
+  type VIterate f '[d] a = Apply f d a
+  vIterate f = apply f . vHead
+
+instance (ApplyC f d1 a, VIterateC (Apply f d1 a) (d2 ': ds) a) => VIterateC f (d1 ': d2 ': ds) a where
+  type VIterate f (d1 ': d2 ': ds) a = VIterate (Apply f d1 a) (d2 ': ds) a
+  vIterate f v = vIterate (apply f (vHead v)) (vTail v)
+
+
 -- Mapping out to a list
 -- ---------------------
 
@@ -331,16 +358,16 @@ type family Homo (ds::[Dimension]) :: Dimension where
   -- [2.0 m]
   -- >>> toList (x <:. x)
   -- [2.0 m,2.0 m]
-  -- >>> toList vh1
-  -- [2.0 m,2.0 m,2.0 m]
-  -- >>> toList vh1 == mapOut Id vh1
+  -- >>> toList vh2
+  -- [2.0 m,1.0 m,4.0 m]
+  -- >>> toList vh2 == mapOut Id vh2
   -- True
 toList :: Num a => Vec ds a -> [Quantity (Homo ds) a]
 toList (ListVec xs) = xs *~~ siUnit
 
 -- | Principled implementation of 'toList'.
   --
-  -- >>> toList vh1 == toList' vh1
+  -- >>> toList vh2 == toList' vh2
   -- True
 toList' :: (MapOutC Id ds a) => Vec ds a -> [MapOut Id ds a]
 toList' = mapOut Id
@@ -348,10 +375,10 @@ toList' = mapOut Id
 
 -- | Compute the sum of all elements in a homogeneous vector.
   --
-  -- >>> vSum vh1 == sum (toList vh1)
+  -- >>> vSum vh2 == sum (toList vh2)
   -- True
-  -- >>> vSum vh1
-  -- 6.0 m
+  -- >>> vSum vh2
+  -- 7.0 m
 vSum :: Num a => Vec ds a -> Quantity (Homo ds) a
 vSum (ListVec xs) = P.sum xs *~ siUnit  -- sum . toList
 
@@ -359,12 +386,42 @@ vSum (ListVec xs) = P.sum xs *~ siUnit  -- sum . toList
   --
   -- >>> vSum (vSing y) == vSum' (vSing y)
   -- True
-  -- >>> vSum vh1 == vSum' vh1
+  -- >>> vSum vh2 == vSum' vh2
   -- True
 vSum' :: (Num a, MapOutC Id ds a, MapOut Id ds a ~ Quantity d a)
       => Vec ds a -> Quantity d a
 vSum' = sum . toList'
 
+
+-- | Compute the vector norm of a homogeneous vector.
+  --
+  -- >>> vNorm (vSing x) == x
+  -- True
+  -- >>> vNorm vh2 == sqrt (dotProduct vh2 vh2)
+  -- True
+  -- >>> vNorm (z <: z <: z <:. z)
+  -- 2.0
+vNorm :: Floating a => Vec ds a -> Quantity (Homo ds) a
+vNorm (ListVec xs) = P.sqrt (P.sum (zipWith (P.*) xs xs)) *~ siUnit
+
+-- | Principled implementation of 'vNorm'.
+  --
+  -- >>> vNorm vh1 == vNorm' vh1
+  -- True
+  -- >>> vNorm vh2 == vNorm' vh2
+  -- True
+vNorm' :: Floating a =>
+  Vec ds2 a -> Quantity (Root (DotProduct ds2 ds2) Pos2) a
+vNorm' v = sqrt (dotProduct v v)
+
+
+-- | Normalize a vector. The vector must be homogeneous.
+  --
+  -- >>> vNormalize (vSing x)
+  -- < 1.0 >
+vNormalize :: Floating a => Vec ds a -> Vec (ScaleVec (DOne / Homo ds) ds a) a
+vNormalize v = (_1 / vNorm v) `scaleVec` v
+--vNormalize v = recip (vNorm v) `scaleVec` v
 
 
 -- Unary (single vector) operations
@@ -596,7 +653,7 @@ crossProduct (ListVec [a,b,c]) (ListVec [d,e,f]) = ListVec
 
 -- | Principled implementation of 'crossProduct'.
   --
-  -- >>> crossProduct vh1 vh1 == crossProduct' vh1 vh1
+  -- >>> crossProduct vh1 vh2 == crossProduct' vh1 vh2
   -- True
   -- >>> crossProduct vc3 vc4 == crossProduct' vc3 vc4
   -- True

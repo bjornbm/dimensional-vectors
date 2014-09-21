@@ -14,6 +14,7 @@ import qualified Prelude
 -- $setup
 -- >>> let x = 2 *~ meter :: Length Double
 -- >>> let y = 3 *~ kilo gram :: Mass Double
+-- >>> let f = (* y) :: Length Double -> FirstMassMoment Double
 
 
 -- Operations from quantities to quantities
@@ -186,3 +187,14 @@ data Show' = Show
 instance Show (Quantity d a) => ApplyC Show' d a where
   type Apply Show' d a = String
   apply Show = show
+
+
+-- | An instance for functions.
+  --
+  -- >>> apply f x == f x
+  -- True
+  -- >>> apply f x == x * y
+  -- True
+instance ApplyC (Quantity d a -> b) d a where
+  type Apply (Quantity d a -> b) d a = b
+  apply f = f
