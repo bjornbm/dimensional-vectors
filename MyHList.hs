@@ -22,7 +22,6 @@ import Numeric.Units.Dimensional.DK.Prelude
 import Nats
 
 -- $setup
--- >>> :set -XDataKinds
 -- >>> let x = 2 *~ meter :: Length Double
 -- >>> let y = 3 *~ kilo gram :: Mass Double
 -- >>> let z = _1
