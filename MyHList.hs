@@ -419,9 +419,12 @@ vNorm' v = sqrt (dotProduct v v)
   --
   -- >>> vNormalize (vSing x)
   -- < 1.0 >
+  -- >>> vNormalize vh2 == scaleVec (_1 / vNorm vh2) vh2
+  -- True
 vNormalize :: Floating a => Vec ds a -> Vec (ScaleVec (DOne / Homo ds) ds a) a
 vNormalize v = (_1 / vNorm v) `scaleVec` v
 --vNormalize v = recip (vNorm v) `scaleVec` v
+
 
 
 -- Unary (single vector) operations
