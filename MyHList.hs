@@ -218,7 +218,6 @@ vLast (ListVec xs) = last xs *~ siUnit
 
 -- Element lookup
 -- --------------
---deriving instance Show a => Show (Vec ds a)
 type family VElemAt (n::Nat) (ds::[Dimension]) :: Dimension
   where
     VElemAt 0 (d ': ds) = d
@@ -397,15 +396,16 @@ elemDiv' = vZipWith Div
 -- Higher order functions
 -- ======================
 
--- |
--- >>> mapOut Show (vSing $ 32.3 *~ meter) :: [String]
--- ["32.3 m"]
---
--- >>> mapOut Show (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
--- ["2.0e-3 kg","3.0","32.3 m"]
---
--- >>> show (2 *~ gram <: _3 <:. 32.3 *~ meter)
--- "< 2.0e-3 kg, 3.0, 32.3 m >"
+-- | @Show@ instance for vectors.
+  --
+  -- >>> mapOut Show (vSing $ 32.3 *~ meter) :: [String]
+  -- ["32.3 m"]
+  -- >>> mapOut Show (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
+  -- ["2.0e-3 kg","3.0","32.3 m"]
+  -- >>> show (vSing $ 32.3 *~ meter)
+  -- "< 32.3 m >"
+  -- >>> show (2 *~ gram <: _3 <:. 32.3 *~ meter)
+  -- "< 2.0e-3 kg, 3.0, 32.3 m >"
 instance (MapOutC Show' ds a, MapOut Show' ds a ~ String) => Show (Vec ds a)
   where show = (\s -> "< " ++ s ++ " >")
              . intercalate ", "
@@ -514,9 +514,7 @@ vSum' = sum . toList
 -- Dot product
 -- ===========
 
--- Approach using constraint synonyms.
-type DotProductC ds1 ds2 = HomoC (VZipWith Mul ds1 ds2)
-type DotProduct  ds1 ds2 = Homo  (VZipWith Mul ds1 ds2)
+type DotProduct ds1 ds2 = Homo (VZipWith Mul ds1 ds2)
 
 -- | Compute the dot product of two vectors.
   --
@@ -527,6 +525,8 @@ type DotProduct  ds1 ds2 = Homo  (VZipWith Mul ds1 ds2)
 dotProduct :: Num a =>
   Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
 dotProduct (ListVec xs) (ListVec ys) = P.sum (zipWith (P.*) xs ys) *~ siUnit
+
+type DotProductC ds1 ds2 = HomoC (VZipWith Mul ds1 ds2)
 
 -- | Principled implementation of 'dotProduct'.
   --
@@ -539,7 +539,11 @@ dotProduct' v1 v2 = vSum (elemMul v1 v2)
 
 -- Cross Product
 -- =============
-  {-
+-- TODO Decide which of the below implementations to use. In particular
+-- whether the 'CrossProductC' and 'CrossProduct' synonyms are worthwhile,
+-- or if the signatures of the principled implementations are good enough.
+
+{-
 class CrossProductC (ds1::[Dimension]) (ds2::[Dimension]) where
   type CrossProduct ds1 ds2 :: [Dimension]
   -- | Compute the cross product of two vectors with three elements.
@@ -553,19 +557,19 @@ instance ((b*f) ~ (e*c), (c*d) ~ (a*f), (a*e) ~ (d*b))
     , c P.* d P.- f P.* a
     , a P.* e P.- d P.* b
     ]
-    -- -}
+-}
 
---type family CrossProductC ds1 ds2 where
+-- For convenience.
 type family CrossProduct ds1 ds2 where
   CrossProduct '[b,c,d] '[e,f,g] = '[c*g, d*e, b*f]
+
+-- | Constraint for vector cross product.
 type CrossProductC ds1 ds2 = CrossProduct ds1 ds2 ~ CrossProduct ds2 ds1
 
 -- | Compute the cross product of two vectors with three elements.
   --
   -- >>> crossProduct vc3 vc4 == vMap Neg (crossProduct vc4 vc3)
   -- True
-  --
---crossProduct :: (Fractional a, (c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c)) --              => Vec '[b,c,d] a -> Vec '[e,f,g] a -> Vec '[c*g, d*e, b*f] a
 crossProduct :: (CrossProductC ds1 ds2, Fractional a)
               => Vec ds1 a -> Vec ds2 a -> Vec (CrossProduct ds1 ds2) a
 crossProduct (ListVec [a,b,c]) (ListVec [d,e,f]) = ListVec
@@ -573,20 +577,6 @@ crossProduct (ListVec [a,b,c]) (ListVec [d,e,f]) = ListVec
     , c P.* d P.- f P.* a
     , a P.* e P.- d P.* b
     ]
-
-
--- |
-  -- >>> crossProduct vc3 vc4 == crossProduct''' vc3 vc4
-  -- True
-type family CrossProductC' ds1 ds2 where
-  CrossProductC' '[b,c,d] '[e,f,g] = ((c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c))
-
-crossProduct''' :: (Fractional a, (c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c))
-              => Vec '[b,c,d] a -> Vec '[e,f,g] a -> Vec '[c*g, d*e, b*f] a
-crossProduct''' v1 v2 = rot (cp v1 v2 `elemSub` cp v2 v1)
-  where cp v1 v2 = v1 `elemMul` rot v2
-
-
 
 -- | Principled implementation of 'crossProduct'.
   --
@@ -606,3 +596,12 @@ crossProduct' v1 v2 =  (c * g - f * d)
     e = vElemAt nat0 v2
     f = vElemAt nat1 v2
     g = vElemAt nat2 v2
+
+-- | Alternate principled implementation of 'crossProduct'.
+  --
+  -- >>> crossProduct vc3 vc4 == crossProduct'' vc3 vc4
+  -- True
+crossProduct'' :: (Fractional a, (c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c))
+              => Vec '[b,c,d] a -> Vec '[e,f,g] a -> Vec '[c*g, d*e, b*f] a
+crossProduct'' v1 v2 = rot (cp v1 v2 `elemSub` cp v2 v1)
+  where cp v1 v2 = v1 `elemMul` rot v2
