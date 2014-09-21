@@ -62,17 +62,61 @@ vCons = (<:)
 x <:. y = x <: vSing y -- = ListVec [x /~ siUnit, y /~ siUnit]
 
 -- | Return the first element of the vector.
+  --
   -- >>> vHead v
   -- 2.0 m
-vHead :: Num a => Vec (d ': ds) a -> Quantity d a
-vHead = vElemAt nat0
+vHead :: Num a => Vec ds a -> Quantity (VHead ds) a
+vHead (ListVec (x:xs)) = x *~ siUnit
+
+-- | Principled implementation of 'vHead'.
+  --
+  -- >>> vHead v == vHead' v
+  -- True
+vHead' :: Num a => Vec (d ': ds) a -> Quantity d a
+vHead' = vElemAt nat0
+
+type family VHead (ds::[Dimension]) :: Dimension
+  where VHead (d ': ds) = d
 
 -- | Drop the first element of the vector.
+  --
   -- >>> vTail v
   -- < 3.0 kg, 1.0 >
-vTail :: Vec (d1 ': d2 ': ds) a -> Vec (d2 ': ds) a
+vTail :: Vec ds a -> Vec (VTail ds) a
+--vTail :: Vec (d1 ': d2 ': ds) a -> Vec (d2 ': ds) a
 vTail (ListVec xs) = ListVec (tail xs)
 
+type family VTail (ds::[Dimension]) :: [Dimension]
+  where VTail (d1 ': d2 ': ds) = d2 ': ds
+
+-- Append and snoc
+-- ===============
+
+type family VAppend (ds1::[Dimension]) (ds2::[Dimension]) :: [Dimension]
+  where
+    VAppend '[d]       ds  = d ': ds
+    VAppend (d ': ds1) ds2 = d ': VAppend ds1 ds2
+
+-- | Append the second vector to the first.
+  --
+  -- >>> vAppend v v
+  -- < 2.0 m, 3.0 kg, 1.0, 2.0 m, 3.0 kg, 1.0 >
+vAppend :: Vec ds1 a -> Vec ds2 a -> Vec (VAppend ds1 ds2) a
+vAppend (ListVec xs) (ListVec ys) = ListVec (xs ++ ys)
+
+
+type VSnoc ds d = VAppend ds '[d]
+
+-- | Add a quantity to the end of a vector.
+  --
+  -- >>> vSnoc (vSing x) y
+  -- < 2.0 m, 3.0 kg >
+  -- >>> vSnoc v x
+  -- < 2.0 m, 3.0 kg, 1.0, 2.0 m >
+  -- >>> vSnoc v x == vAppend v (vSing x)
+  -- True
+vSnoc :: Fractional a => Vec ds a -> Quantity d a -> Vec (VSnoc ds d) a
+vSnoc v x = vAppend v (vSing x)
 
 {-
 -- Convert to/from Tuples
@@ -523,8 +567,10 @@ dotProduct' v1 v2 = vSum (elemMul v1 v2)
 
 -- Cross Product
 -- =============
+  {-
 class CrossProductC (ds1::[Dimension]) (ds2::[Dimension]) where
   type CrossProduct ds1 ds2 :: [Dimension]
+  -- | Compute the cross product of two vectors with three elements.
   crossProduct :: Num a => Vec ds1 a -> Vec ds2 a -> Vec (CrossProduct ds1 ds2) a
 
 instance ((b*f) ~ (e*c), (c*d) ~ (a*f), (a*e) ~ (d*b))
@@ -535,6 +581,61 @@ instance ((b*f) ~ (e*c), (c*d) ~ (a*f), (a*e) ~ (d*b))
     , c P.* d P.- f P.* a
     , a P.* e P.- d P.* b
     ]
+    -- -}
+
+--type family CrossProductC ds1 ds2 where
+type family CrossProduct ds1 ds2 where
+  CrossProduct '[b,c,d] '[e,f,g] = '[c*g, d*e, b*f]
+type CrossProductC ds1 ds2 = CrossProduct ds1 ds2 ~ CrossProduct ds2 ds1
+
+-- | Compute the cross product of two vectors with three elements.
+  --
+  -- >>> crossProduct vc3 vc4 == vMap Neg (crossProduct vc4 vc3)
+  -- True
+  --
+--crossProduct :: (Fractional a, (c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c)) --              => Vec '[b,c,d] a -> Vec '[e,f,g] a -> Vec '[c*g, d*e, b*f] a
+crossProduct :: (CrossProductC ds1 ds2, Fractional a)
+              => Vec ds1 a -> Vec ds2 a -> Vec (CrossProduct ds1 ds2) a
+crossProduct (ListVec [a,b,c]) (ListVec [d,e,f]) = ListVec
+    [ b P.* f P.- e P.* c
+    , c P.* d P.- f P.* a
+    , a P.* e P.- d P.* b
+    ]
+
+
+-- |
+  -- >>> crossProduct vc3 vc4 == crossProduct''' vc3 vc4
+  -- True
+type family CrossProductC' ds1 ds2 where
+  CrossProductC' '[b,c,d] '[e,f,g] = ((c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c))
+
+crossProduct''' :: (Fractional a, (c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c))
+              => Vec '[b,c,d] a -> Vec '[e,f,g] a -> Vec '[c*g, d*e, b*f] a
+crossProduct''' v1 v2 = rot (cp v1 v2 `elemSub` cp v2 v1)
+  where cp v1 v2 = v1 `elemMul` rot v2
+
+
+
+-- | Rotates a vector, so that @<x,y,z> -> <y,z,x>@.
+  --
+  -- >>> rot v
+  -- < 3.0 kg, 1.0, 2.0 m >
+  -- >>> rot v == (vTail v `vSnoc` vHead v)
+  -- True
+  -- >>> (rot $ rot $ rot v) == v
+  -- True
+rot :: Fractional a => Vec ds a -> Vec (Rot ds) a
+rot (ListVec (x:xs)) = ListVec (xs ++ [x])
+
+type Rot ds = VSnoc (VTail ds) (VHead ds)
+
+-- | Principled implementation of 'rot'.
+  --
+  -- >>> rot v == rot' v
+  -- True
+rot' :: Fractional a => Vec (d ': d2 ': ds) a -> Vec (VSnoc (d2 ': ds) d) a
+rot' v = vTail v `vSnoc` vHead v
+
 
 -- | Principled implementation of 'crossProduct'.
   --
