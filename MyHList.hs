@@ -38,110 +38,8 @@ import Numeric.Units.Dimensional.DK.Prelude
 
 infixr 5  <:, <:.
 
-
+-- | The vector type.
 newtype Vec (ds::[Dimension]) a = ListVec [a] deriving (Eq)
-
--- Exported constructor functions.
--- |
-  -- >>> vSing x
-  -- < 2.0 m >
-vSing :: Fractional a => Quantity d a -> Vec '[d] a
-vSing x = ListVec [x /~ siUnit]
-
--- |
-  -- >>> vCons x (vSing y)
-  -- < 2.0 m, 3.0 kg >
-(<:), vCons  :: Fractional a => Quantity d a -> Vec ds a -> Vec (d ': ds) a
-x <: ListVec xs = ListVec (x /~ siUnit : xs)
-vCons = (<:)
-
--- |
-  -- >>> x <:. y
-  -- < 2.0 m, 3.0 kg >
-(<:.) :: Fractional a => Quantity d1 a -> Quantity d2 a -> Vec '[d1, d2] a
-x <:. y = x <: vSing y -- = ListVec [x /~ siUnit, y /~ siUnit]
-
--- | Return the first element of the vector.
-  --
-  -- >>> vHead v
-  -- 2.0 m
-vHead :: Num a => Vec ds a -> Quantity (VHead ds) a
-vHead (ListVec (x:xs)) = x *~ siUnit
-
--- | Principled implementation of 'vHead'.
-  --
-  -- >>> vHead v == vHead' v
-  -- True
-vHead' :: Num a => Vec (d ': ds) a -> Quantity d a
-vHead' = vElemAt nat0
-
-type family VHead (ds::[Dimension]) :: Dimension
-  where VHead (d ': ds) = d
-
--- | Drop the first element of the vector.
-  --
-  -- >>> vTail v
-  -- < 3.0 kg, 1.0 >
-vTail :: Vec ds a -> Vec (VTail ds) a
---vTail :: Vec (d1 ': d2 ': ds) a -> Vec (d2 ': ds) a
-vTail (ListVec xs) = ListVec (tail xs)
-
-type family VTail (ds::[Dimension]) :: [Dimension]
-  where VTail (d1 ': d2 ': ds) = d2 ': ds
-
--- Append and snoc
--- ===============
-
-type family VAppend (ds1::[Dimension]) (ds2::[Dimension]) :: [Dimension]
-  where
-    VAppend '[d]       ds  = d ': ds
-    VAppend (d ': ds1) ds2 = d ': VAppend ds1 ds2
-
--- | Append the second vector to the first.
-  --
-  -- >>> vAppend v v
-  -- < 2.0 m, 3.0 kg, 1.0, 2.0 m, 3.0 kg, 1.0 >
-vAppend :: Vec ds1 a -> Vec ds2 a -> Vec (VAppend ds1 ds2) a
-vAppend (ListVec xs) (ListVec ys) = ListVec (xs ++ ys)
-
-
-type VSnoc ds d = VAppend ds '[d]
-
--- | Add a quantity to the end of a vector.
-  --
-  -- >>> vSnoc (vSing x) y
-  -- < 2.0 m, 3.0 kg >
-  -- >>> vSnoc v x
-  -- < 2.0 m, 3.0 kg, 1.0, 2.0 m >
-  -- >>> vSnoc v x == vAppend v (vSing x)
-  -- True
-vSnoc :: Fractional a => Vec ds a -> Quantity d a -> Vec (VSnoc ds d) a
-vSnoc v x = vAppend v (vSing x)
-
-{-
--- Convert to/from Tuples
--- ----------------------
--- | Convert to/from tuple representation. This is primarily to allow taking
--- advantage of the syntactic sugar tuples enjoy.
-class VTupleC v t | v -> t, t -> v where
-  toTuple   :: v -> t
-  fromTuple :: t -> v
-
-{-
-We can brute force the instances out to a reasonable degree. Presumably
-syntactic sugar loses its value if the vectors get to large as it is
-impractical to deal with them any way other than programmatically.
--}
-
-instance VTuple (Vec (d1:*.d2) a) (Quantity d1 a, Quantity d2 a) where
-  toTuple v = (vElemAt zero v, vElemAt pos1 v)
-  fromTuple (x,y) = vCons x $ vSing y
-
-instance VTuple (Vec (d1:*:d2:*.d3) a) 
-                (Quantity d1 a, Quantity d2 a, Quantity d3  a) where
-  toTuple v = (vElemAt zero v, vElemAt pos1 v, vElemAt pos2 v)
-  fromTuple (x,y,z) = vCons x $ vCons y $ vSing z
--}
 
 {-
 Utility functions (do not export!)
@@ -178,6 +76,213 @@ different underlying implementation these utility functions can be
 removed?
 -}
 
+
+-- Vector construction
+-- ===================
+-- Exported constructor functions.
+
+-- | Construct a vector with a single element.
+  --
+  -- >>> vSing x
+  -- < 2.0 m >
+vSing :: Fractional a => Quantity d a -> Vec '[d] a
+vSing x = ListVec [x /~ siUnit]
+
+-- | Create a vector with two elements.
+  --
+  -- >>> x <:. y
+  -- < 2.0 m, 3.0 kg >
+  -- >>> x <:. y == x <: vSing y
+  -- True
+  -- >>> x <:. y == vSing x `vAppend` vSing y
+  -- True
+  -- >>> x <:. y == vSing x `vSnoc` y
+  -- True
+(<:.) :: Fractional a => Quantity d1 a -> Quantity d2 a -> Vec '[d1, d2] a
+x <:. y = ListVec [x /~ siUnit, y /~ siUnit]
+
+
+-- List construction style (cons)
+-- ------------------------------
+
+-- | Prepend an element to a vector.
+  --
+  -- >>> vCons x (vSing y)
+  -- < 2.0 m, 3.0 kg >
+(<:), vCons  :: Fractional a => Quantity d a -> Vec ds a -> Vec (d ': ds) a
+x <: ListVec xs = ListVec (x /~ siUnit : xs)
+vCons = (<:)
+
+
+-- Append and snoc
+-- ---------------
+
+type family VAppend (ds1::[Dimension]) (ds2::[Dimension]) :: [Dimension]
+  where
+    VAppend '[d]       ds  = d ': ds
+    VAppend (d ': ds1) ds2 = d ': VAppend ds1 ds2
+
+-- | Append the second vector to the first.
+  --
+  -- >>> vAppend v v
+  -- < 2.0 m, 3.0 kg, 1.0, 2.0 m, 3.0 kg, 1.0 >
+vAppend :: Vec ds1 a -> Vec ds2 a -> Vec (VAppend ds1 ds2) a
+vAppend (ListVec xs) (ListVec ys) = ListVec (xs ++ ys)
+
+
+type VSnoc ds d = VAppend ds '[d]
+
+-- | Append a quantity to the end of a vector.
+  --
+  -- >>> vSnoc (vSing x) y
+  -- < 2.0 m, 3.0 kg >
+  -- >>> vSnoc v x
+  -- < 2.0 m, 3.0 kg, 1.0, 2.0 m >
+  -- >>> vSnoc v x == vAppend v (vSing x)
+  -- True
+vSnoc :: Fractional a => Vec ds a -> Quantity d a -> Vec (VSnoc ds d) a
+vSnoc (ListVec xs) x = ListVec (xs ++ [x /~ siUnit])
+
+-- | Principled implementation of 'vSnoc'.
+  --
+  -- >>> vSnoc v x == vSnoc' v x
+  -- True
+vSnoc' :: Fractional a => Vec ds a -> Quantity d a -> Vec (VSnoc ds d) a
+vSnoc' v x = vAppend v (vSing x)
+
+
+-- Deconstruction
+-- ==============
+
+-- List style deconstruction (head, tail)
+-- --------------------------------------
+
+-- | Return the first element of the vector.
+  --
+  -- >>> vHead v
+  -- 2.0 m
+vHead :: Num a => Vec ds a -> Quantity (VHead ds) a
+vHead (ListVec (x:xs)) = x *~ siUnit
+
+-- | Principled implementation of 'vHead'.
+  --
+  -- >>> vHead v == vHead' v
+  -- True
+vHead' :: Num a => Vec (d ': ds) a -> Quantity d a
+vHead' = vElemAt nat0
+
+type family VHead (ds::[Dimension]) :: Dimension
+  where VHead (d ': ds) = d
+
+-- | Drop the first element of the vector.
+  --
+  -- >>> vTail v
+  -- < 3.0 kg, 1.0 >
+vTail :: Vec ds a -> Vec (VTail ds) a
+--vTail :: Vec (d1 ': d2 ': ds) a -> Vec (d2 ': ds) a
+vTail (ListVec xs) = ListVec (tail xs)
+
+type family VTail (ds::[Dimension]) :: [Dimension]
+  where VTail (d1 ': d2 ': ds) = d2 ': ds
+
+
+-- Dlist style (last, init)
+-- ========================
+
+type family VInit ds :: [Dimension] where
+  VInit '[d1, d2] = '[d1]
+  VInit (d ': ds) = d ': VInit ds
+
+-- |
+  -- >>> vInit v == x <:. y
+  -- True
+  -- >>> vInit (vSnoc v x) == v
+  -- True
+vInit :: Vec ds a -> Vec (VInit ds) a
+vInit (ListVec xs) = ListVec (init xs)
+
+type family VLast ds :: Dimension where
+  VLast '[d] = d
+  VLast (d ': ds) = VLast ds
+
+-- |
+  -- >>> vLast v == z
+  -- True
+  -- >>> vLast (vSnoc v x) == x
+  -- True
+vLast :: Num a => Vec ds a -> Quantity (VLast ds) a
+vLast (ListVec xs) = last xs *~ siUnit
+
+
+-- Element lookup
+-- --------------
+--deriving instance Show a => Show (Vec ds a)
+type family VElemAt (n::Nat) (ds::[Dimension]) :: Dimension
+  where
+    VElemAt 0 (d ': ds) = d
+    VElemAt n (d ': ds) = VElemAt (n - 1) ds
+
+-- | Look up the element at the given (zero-based) index.
+  -- >>> vElemAt nat0 v == x
+  -- True
+  -- >>> vElemAt nat1 v == y
+  -- True
+  -- >>> vElemAt nat2 v == z
+  -- True
+vElemAt :: (KnownNat n, Num a)
+        => Proxy (n::Nat) -> Vec ds a -> Quantity (VElemAt n ds) a
+vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
+
+
+-- Forth style rot
+-- ===============
+
+-- | Rotates a vector, so that @<x,y,z> -> <y,z,x>@.
+  --
+  -- >>> rot v
+  -- < 3.0 kg, 1.0, 2.0 m >
+  -- >>> rot v == (vTail v `vSnoc` vHead v)
+  -- True
+  -- >>> (rot $ rot $ rot v) == v
+  -- True
+rot :: Fractional a => Vec ds a -> Vec (Rot ds) a
+rot (ListVec (x:xs)) = ListVec (xs ++ [x])
+
+type Rot ds = VSnoc (VTail ds) (VHead ds)
+
+-- | Principled implementation of 'rot'.
+  --
+  -- >>> rot v == rot' v
+  -- True
+rot' :: Fractional a => Vec (d ': d2 ': ds) a -> Vec (VSnoc (d2 ': ds) d) a
+rot' v = vTail v `vSnoc` vHead v
+
+
+{-
+-- Convert to/from Tuples
+-- ----------------------
+-- | Convert to/from tuple representation. This is primarily to allow taking
+-- advantage of the syntactic sugar tuples enjoy.
+class VTupleC v t | v -> t, t -> v where
+  toTuple   :: v -> t
+  fromTuple :: t -> v
+
+{-
+We can brute force the instances out to a reasonable degree. Presumably
+syntactic sugar loses its value if the vectors get to large as it is
+impractical to deal with them any way other than programmatically.
+-}
+
+instance VTuple (Vec (d1:*.d2) a) (Quantity d1 a, Quantity d2 a) where
+  toTuple v = (vElemAt zero v, vElemAt pos1 v)
+  fromTuple (x,y) = vCons x $ vSing y
+
+instance VTuple (Vec (d1:*:d2:*.d3) a) 
+                (Quantity d1 a, Quantity d2 a, Quantity d3  a) where
+  toTuple v = (vElemAt zero v, vElemAt pos1 v, vElemAt pos2 v)
+  fromTuple (x,y,z) = vCons x $ vCons y $ vSing z
+-}
+
 -- Elementwise binary operators
 -- ============================
 
@@ -189,6 +294,14 @@ removed?
 elemAdd :: Num a => Vec ds a -> Vec ds a -> Vec ds a
 elemAdd = repZipWith (P.+)
 
+-- | Principled implementation of 'elemAdd'.
+  --
+  -- >>> elemAdd v v == elemAdd' v v
+  -- True
+elemAdd' :: (Num a, VZipWithC Add ds ds a, VZipWith Add ds ds ~ ds)
+         => Vec ds a -> Vec ds a -> Vec ds a
+elemAdd' v1 v2 = vZipWith Add v1 v2
+
 -- | Elementwise subraction of vectors. The vectors must have the
 -- same size and element types.
   --
@@ -196,6 +309,14 @@ elemAdd = repZipWith (P.+)
   -- True
 elemSub :: Num a => Vec ds a -> Vec ds a -> Vec ds a
 elemSub = repZipWith (P.-)
+
+-- | Principled implementation of 'elemSub'.
+  --
+  -- >>> elemSub v v == elemSub' v v
+  -- True
+elemSub' :: (Num a, VZipWithC Sub ds ds a, VZipWith Sub ds ds ~ ds)
+         => Vec ds a -> Vec ds a -> Vec ds a
+elemSub' v1 v2 = vZipWith Sub v1 v2
 
 
 -- Length
@@ -211,25 +332,6 @@ type family VLength (ds::[Dimension]) :: Nat
   -- True
 vLength :: Vec ds a -> Proxy (VLength ds)
 vLength _ = Proxy
-
--- Lookup
--- ======
---deriving instance Show a => Show (Vec ds a)
-type family VElemAt (n::Nat) (ds::[Dimension]) :: Dimension
-  where
-    VElemAt 0 (d ': ds) = d
-    VElemAt n (d ': ds) = VElemAt (n - 1) ds
-
--- |
-  -- >>> vElemAt nat0 v == x
-  -- True
-  -- >>> vElemAt nat1 v == y
-  -- True
-  -- >>> vElemAt nat2 v == z
-  -- True
-vElemAt :: (KnownNat n, Num a)
-        => Proxy (n::Nat) -> Vec ds a -> Quantity (VElemAt n ds) a
-vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
 
 
 -- Apply with type.
@@ -355,6 +457,23 @@ instance Num a => BinaryC Mul d1 d2 a where
   type Binary Mul d1 d2 = d1 * d2
   binary Mul x y = x * y
 
+-- |
+-- >>> binary Add (2 *~ meter) (4.0 *~ meter)
+-- 6.0 m
+data Add = Add
+
+instance Num a => BinaryC Add d d a where
+  type Binary Add d d = d
+  binary Add x y = x + y
+
+-- |
+-- >>> binary Sub (2 *~ meter) (4.0 *~ meter)
+-- -2.0 m
+data Sub = Sub
+
+instance Num a => BinaryC Sub d d a where
+  type Binary Sub d d = d
+  binary Sub x y = x - y
 
 -- |
   -- >>> unary Neg x == negate x
@@ -614,27 +733,6 @@ crossProduct''' :: (Fractional a, (c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c))
 crossProduct''' v1 v2 = rot (cp v1 v2 `elemSub` cp v2 v1)
   where cp v1 v2 = v1 `elemMul` rot v2
 
-
-
--- | Rotates a vector, so that @<x,y,z> -> <y,z,x>@.
-  --
-  -- >>> rot v
-  -- < 3.0 kg, 1.0, 2.0 m >
-  -- >>> rot v == (vTail v `vSnoc` vHead v)
-  -- True
-  -- >>> (rot $ rot $ rot v) == v
-  -- True
-rot :: Fractional a => Vec ds a -> Vec (Rot ds) a
-rot (ListVec (x:xs)) = ListVec (xs ++ [x])
-
-type Rot ds = VSnoc (VTail ds) (VHead ds)
-
--- | Principled implementation of 'rot'.
-  --
-  -- >>> rot v == rot' v
-  -- True
-rot' :: Fractional a => Vec (d ': d2 ': ds) a -> Vec (VSnoc (d2 ': ds) d) a
-rot' v = vTail v `vSnoc` vHead v
 
 
 -- | Principled implementation of 'crossProduct'.
