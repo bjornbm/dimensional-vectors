@@ -236,6 +236,56 @@ vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
 
 
 
+-- Homogeneous vectors
+-- ===================
+
+type family Homo (ds::[Dimension]) :: Dimension where
+  Homo '[d] = d
+  Homo (d ': d ': ds) = Homo (d ': ds)
+
+
+-- | Convert a homogeneous vector to a list.
+  --
+  -- >>> toList (vSing x)
+  -- [2.0 m]
+  -- >>> toList (x <:. x)
+  -- [2.0 m,2.0 m]
+  -- >>> toList vh1
+  -- [2.0 m,2.0 m,2.0 m]
+  -- >>> toList vh1 == mapOut Id vh1
+  -- True
+toList :: Num a => Vec ds a -> [Quantity (Homo ds) a]
+toList (ListVec xs) = xs *~~ siUnit
+
+-- | Principled implementation of 'toList'.
+  --
+  -- >>> toList vh1 == toList' vh1
+  -- True
+toList' :: (MapOutC Id ds a) => Vec ds a -> [MapOut Id ds a]
+toList' = mapOut Id
+
+
+-- | Compute the sum of all elements in a homogeneous vector.
+  --
+  -- >>> vSum vh1 == sum (toList vh1)
+  -- True
+  -- >>> vSum vh1
+  -- 6.0 m
+vSum :: Num a => Vec ds a -> Quantity (Homo ds) a
+vSum (ListVec xs) = P.sum xs *~ siUnit  -- sum . toList
+
+-- | Principled implementation of 'sum'.
+  --
+  -- >>> vSum (vSing y) == vSum' (vSing y)
+  -- True
+  -- >>> vSum vh1 == vSum' vh1
+  -- True
+vSum' :: (Num a, MapOutC Id ds a, MapOut Id ds a ~ Quantity d a)
+      => Vec ds a -> Quantity d a
+vSum' = sum . toList'
+
+
+
 -- Unary (single vector) operations
 -- ================================
 
@@ -257,6 +307,8 @@ vLength _ = Proxy
 -- Forth style rot
 -- ---------------
 
+type Rot ds = VSnoc (VTail ds) (VHead ds)
+
 -- | Rotate a vector so that @<x,y,z> -> <y,z,x>@.
   --
   -- >>> rot v
@@ -268,15 +320,12 @@ vLength _ = Proxy
 rot :: Fractional a => Vec ds a -> Vec (Rot ds) a
 rot (ListVec (x:xs)) = ListVec (xs ++ [x])
 
-type Rot ds = VSnoc (VTail ds) (VHead ds)
-
 -- | Principled implementation of 'rot'.
   --
   -- >>> rot v == rot' v
   -- True
 rot' :: Fractional a => Vec (d ': d2 ': ds) a -> Vec (VSnoc (d2 ': ds) d) a
 rot' v = vTail v `vSnoc` vHead v
-
 
 
 -- Scaling
@@ -396,23 +445,14 @@ elemDiv' = vZipWith Div
 -- Higher order functions
 -- ======================
 
--- | @Show@ instance for vectors.
+
+
+-- | Map out a vector to a list.
   --
   -- >>> mapOut Show (vSing $ 32.3 *~ meter) :: [String]
   -- ["32.3 m"]
   -- >>> mapOut Show (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
   -- ["2.0e-3 kg","3.0","32.3 m"]
-  -- >>> show (vSing $ 32.3 *~ meter)
-  -- "< 32.3 m >"
-  -- >>> show (2 *~ gram <: _3 <:. 32.3 *~ meter)
-  -- "< 2.0e-3 kg, 3.0, 32.3 m >"
-instance (MapOutC Show' ds a, MapOut Show' ds a ~ String) => Show (Vec ds a)
-  where show = (\s -> "< " ++ s ++ " >")
-             . intercalate ", "
-             . mapOut Show
-
-
--- | Map out a vector to a list.
 class MapOutC f (ds::[Dimension]) a where
   type MapOut f ds a
   mapOut :: f -> Vec ds a -> [MapOut f ds a]
@@ -428,28 +468,39 @@ instance ( ApplyC f d1 a, MapOutC f (d2 ': ds) a, Num a
     type MapOut f (d1 ': d2 ': ds) a = MapOut f (d2 ': ds) a -- :Apply f d a
     mapOut f v = apply f (vHead v) : mapOut f (vTail v)
 
--- --------------------------------------------------------------
--- --------------------------------------------------------------
--- |
-  --
+
+-- Mapping
+-- -------
+
 class VMapC f ds1 a where
   type VMap f ds1 :: [Dimension]
+  -- | Map a unary operation over all elements of a vector.
+    --
+    -- >>> vMap Id v == v
+    -- True
+    -- >>> vMap (UnaryL x Mul) (y <:. z) == (x*y <:. x*z)
+    -- True
   vMap :: f -> Vec ds1 a -> Vec (VMap f ds1) a
 
 instance (UnaryC f d a, Fractional a) => VMapC f '[d] a where
   type VMap f '[d] = '[Unary f d]
   vMap f = vSing . unary f . vHead
 
-instance (UnaryC f d1 a, VMapC f (d2 ': ds) a, Fractional a) => VMapC f (d1 ': d2 ': ds) a
+instance (UnaryC f d1 a, VMapC f (d2 ': ds) a, Fractional a)
+  => VMapC f (d1 ': d2 ': ds) a
   where
     type VMap f (d1 ': d2 ': ds) = Unary f d1 ': VMap f (d2 ': ds)
     vMap f v = unary f (vHead v) <: vMap f (vTail v)
 
 
+-- Zipping
+-- -------
 
 class VZipWithC f ds1 ds2 a where
   type VZipWith f ds1 ds2 :: [Dimension]
-  -- |
+  -- | Combine elements from two vectors using a binary operation. This is
+    -- similar to the preludes @zipWith@.
+    --
     -- >>> vZipWith Mul (vSing x) (vSing z) == vSing (x * z)
     -- True
     -- >>> vZipWith Mul v v == (x * x) <: (y * y) <:. (z * z)
@@ -464,51 +515,10 @@ instance (BinaryC f d1 d2 a, Fractional a) => VZipWithC f '[d1] '[d2] a where
 instance (VZipWithC f (d2 ': ds) (e2 ': es) a, BinaryC f d1 e1 a, Fractional a)
       => VZipWithC f (d1 ': d2 ': ds) (e1 ': e2 ': es) a
   where
-    type VZipWith f (d1 ': d2  ': ds) (e1 ': e2 ': es) = Binary f d1 e1 ': VZipWith f (d2 ': ds) (e2 ': es)
+    type VZipWith f (d1 ': d2 ': ds) (e1 ': e2 ': es)
+      = Binary f d1 e1 ': VZipWith f (d2 ': ds) (e2 ': es)
     vZipWith f v1 v2 = binary f (vHead v1) (vHead v2) <: vZipWith f (vTail v1) (vTail v2)
 
-
-
--- Homogeneous vectors
--- ===================
-
-class HomoC (ds::[Dimension]) where type Homo ds :: Dimension
-instance HomoC '[d] where type Homo '[d] = d
-instance (Homo ds ~ d) => HomoC (d ': ds) where type Homo (d ': ds) = d
-
-
--- | Convert a homogeneous vector to a list.
-  --
-  -- >>> toList vh1
-  -- [2.0 m,2.0 m,2.0 m]
-  -- >>> toList vh1 == mapOut Id vh1
-  -- True
-toList :: (HomoC ds, Num a) => Vec ds a -> [Quantity (Homo ds) a]
-toList (ListVec xs) = xs *~~ siUnit
-
--- | Principled implementation of 'toList'.
-  --
-  -- >>> toList vh1 == toList' vh1
-  -- True
-toList' :: (MapOutC Id ds a) => Vec ds a -> [MapOut Id ds a]
-toList' = mapOut Id
-
-
--- | Compute the sum of all elements in a homogeneous vector.
-  --
-  -- >>> vSum vh1 == sum (toList vh1)
-  -- True
-  -- >>> vSum vh1
-  -- 6.0 m
-vSum :: Num a => Vec ds a -> Quantity (Homo ds) a
-vSum (ListVec xs) = P.sum xs *~ siUnit
-
--- | Principled implementation of 'sum'.
-  --
-  -- >>> vSum vh1 == vSum' vh1
-  -- True
-vSum' :: (HomoC ds, Num a) => Vec ds a -> Quantity (Homo ds) a
-vSum' = sum . toList
 
 
 -- Dot product
@@ -522,18 +532,16 @@ type DotProduct ds1 ds2 = Homo (VZipWith Mul ds1 ds2)
   -- True
   -- >>> dotProduct v v'''
   -- 18.0 m kg
-dotProduct :: Num a =>
-  Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
+dotProduct :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
 dotProduct (ListVec xs) (ListVec ys) = P.sum (zipWith (P.*) xs ys) *~ siUnit
 
-type DotProductC ds1 ds2 = HomoC (VZipWith Mul ds1 ds2)
+--type DotProductC ds1 ds2 = HomoC (VZipWith Mul ds1 ds2)
 
 -- | Principled implementation of 'dotProduct'.
   --
   -- >>> dotProduct v v''' == dotProduct' v v'''
   -- True
-dotProduct' :: (DotProductC ds1 ds2, Num a) =>
-  Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
+dotProduct' :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
 dotProduct' v1 v2 = vSum (elemMul v1 v2)
 
 
@@ -605,3 +613,18 @@ crossProduct'' :: (Fractional a, (c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c))
               => Vec '[b,c,d] a -> Vec '[e,f,g] a -> Vec '[c*g, d*e, b*f] a
 crossProduct'' v1 v2 = rot (cp v1 v2 `elemSub` cp v2 v1)
   where cp v1 v2 = v1 `elemMul` rot v2
+
+
+-- Show
+-- ====
+
+-- | We provide a custom @Show@ instance for vectors.
+  --
+  -- >>> show (vSing $ 32.3 *~ meter)
+  -- "< 32.3 m >"
+  -- >>> show (2 *~ gram <: _3 <:. 32.3 *~ meter)
+  -- "< 2.0e-3 kg, 3.0, 32.3 m >"
+instance (MapOutC Show' ds a, MapOut Show' ds a ~ String) => Show (Vec ds a)
+  where show = (\s -> "< " ++ s ++ " >")
+             . intercalate ", "
+             . mapOut Show
