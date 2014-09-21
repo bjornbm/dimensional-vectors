@@ -1,16 +1,16 @@
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE GADTSyntax #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTSyntax #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module MyHList where
 
@@ -19,6 +19,7 @@ import Data.List (intercalate)
 import Data.Proxy
 import GHC.TypeLits hiding (type (*))
 import Numeric.Units.Dimensional.DK.Prelude
+import Apply
 import Nats
 
 -- $setup
@@ -316,45 +317,6 @@ vLength :: Vec ds a -> Proxy (VLength ds)
 vLength _ = Proxy
 
 
--- Apply with type.
-class ApplyC f d a where
-  type Apply f d a
-  apply :: f -> Quantity d a -> Apply f d a
-
-instance ApplyC Id d a where
-  type Apply Id d a = Quantity d a
-  apply _ = id
-
-
-{-
--- Apply with class.
-class ApplyC f d a b where applyC :: f -> Quantity d a -> b
-
-instance ( UnaryC f d a, d2 ~ Unary f d
-  ) => ApplyC f d a (Quantity d2 a)
-  where
-    applyC = unary
--}
-
--- |
--- >>> apply Show (4.2 *~ kilo meter) :: String
--- "4200.0 m"
---
--- >>> apply Show (42 *~ gram)
--- "4.2e-2 kg"
---
--- >>> show (2 *~ gram <: _3 <:. 32.3 *~ meter)
--- "< 2.0e-3 kg, 3.0, 32.3 m >"
---
-data ShowQ = Show
-
-instance Show (Quantity d a) => ApplyC ShowQ d a where
-  type Apply ShowQ d a = String
-  apply _ = show
-
---instance Show (Quantity d a) => ApplyC ShowQ d a String where applyC _ = show
-
-
 -- |
 -- >>> mapOut Show (vSing $ 32.3 *~ meter) :: [String]
 -- ["32.3 m"]
@@ -362,7 +324,9 @@ instance Show (Quantity d a) => ApplyC ShowQ d a where
 -- >>> mapOut Show (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
 -- ["2.0e-3 kg","3.0","32.3 m"]
 --
-instance (MapOutC ShowQ ds a, MapOut ShowQ ds a ~ String) => Show (Vec ds a)
+-- >>> show (2 *~ gram <: _3 <:. 32.3 *~ meter)
+-- "< 2.0e-3 kg, 3.0, 32.3 m >"
+instance (MapOutC Show' ds a, MapOut Show' ds a ~ String) => Show (Vec ds a)
   where show = (\s -> "< " ++ s ++ " >")
              . intercalate ", "
              . mapOut Show
@@ -386,105 +350,6 @@ instance ( ApplyC f d1 a, MapOutC f (d2 ': ds) a, Num a
 
 -- --------------------------------------------------------------
 -- --------------------------------------------------------------
--- --------------------------------------------------------------
-
-class UnaryC f d a where
-  type Unary f d :: Dimension
-  unary :: f -> Quantity d a -> Quantity (Unary f d) a
-
--- |
-class BinaryC f d1 d2 a where
-  type Binary f d1 d2 :: Dimension
-  binary :: f -> Quantity d1 a -> Quantity d2 a -> Quantity (Binary f d1 d2) a
-
--- | Type for making a binary operation unary, with the left argument
-  -- pre-supplied.
-  --
-  -- >>> unary (UnaryL x Div) y == binary Div x y
-  -- True
-data UnaryL d a f = UnaryL (Quantity d a) f
-
--- | Type for making a binary operation unary, with the right argument
-  -- pre-supplied.
-  --
-  -- >>> unary (UnaryR Div y) x == binary Div x y
-  -- True
-data UnaryR f d a = UnaryR f (Quantity d a)
-
-instance BinaryC f d1 d2 a => UnaryC (UnaryR f d2 a) d1 a where
-  type Unary (UnaryR f d2 a) d1 = Binary f d1 d2
-  unary (UnaryR f y) x = binary f x y
-
-instance BinaryC f d1 d2 a => UnaryC (UnaryL d1 a f) d2 a where
-  type Unary (UnaryL d1 a f) d2 = Binary f d1 d2
-  unary (UnaryL x f) y = binary f x y
-
--- |
--- >>> binary Div x y == x / y
--- True
-data Div = Div
-
-instance Fractional a => BinaryC Div d1 d2 a where
-  type Binary Div d1 d2 = d1 / d2
-  binary Div x y = x / y
-
--- |
--- >>> binary Mul _2 (4.0 *~ meter)
--- 8.0 m
--- >>> unary (UnaryR Mul (_2::Dimensionless Double)) (4.0 *~ meter::Length Double)
--- 8.0 m
-data Mul = Mul
-
-instance Num a => BinaryC Mul d1 d2 a where
-  type Binary Mul d1 d2 = d1 * d2
-  binary Mul x y = x * y
-
--- |
--- >>> binary Add (2 *~ meter) (4.0 *~ meter)
--- 6.0 m
-data Add = Add
-
-instance Num a => BinaryC Add d d a where
-  type Binary Add d d = d
-  binary Add x y = x + y
-
--- |
--- >>> binary Sub (2 *~ meter) (4.0 *~ meter)
--- -2.0 m
-data Sub = Sub
-
-instance Num a => BinaryC Sub d d a where
-  type Binary Sub d d = d
-  binary Sub x y = x - y
-
--- |
-  -- >>> unary Neg x == negate x
-  -- True
-data Neg = Neg
-
-instance Num a => UnaryC Neg d a where
-  type Unary Neg d = d
-  unary Neg = negate
-
--- |
-  -- >>> unary Rec x == x ^ neg1
-  -- True
-data Rec = Rec
-
-instance Fractional a => UnaryC Rec d a where
-  type Unary Rec d = Recip d
-  unary Rec x = _1 / x
-
--- |
-  -- >>> unary Id x == x
-  -- True
-data Id = Id
-
-instance Num a => UnaryC Id d a where
-  type Unary Id d = d
-  unary Id = id
-
-
 -- |
   --
 class VMapC f ds1 a where
@@ -610,7 +475,7 @@ instance (Homo ds ~ d) => HomoC (d ': ds) where type Homo (d ': ds) = d
   --
   -- >>> toList vh1
   -- [2.0 m,2.0 m,2.0 m]
-  -- >>> toList vh1 == mapOut Id vh1
+  -- >>> toList vh1 == mapOut (Un Id) vh1
   -- True
 toList :: (HomoC ds, Num a) => Vec ds a -> [Quantity (Homo ds) a]
 toList (ListVec xs) = xs *~~ siUnit
@@ -619,8 +484,8 @@ toList (ListVec xs) = xs *~~ siUnit
   --
   -- >>> toList vh1 == toList' vh1
   -- True
-toList' :: (MapOutC Id ds a) => Vec ds a -> [MapOut Id ds a]
-toList' = mapOut Id
+toList' :: (MapOutC (Un Id) ds a) => Vec ds a -> [MapOut (Un Id) ds a]
+toList' = mapOut (Un Id)
 
 
 -- | Compute the sum of all elements in a homogeneous vector.
