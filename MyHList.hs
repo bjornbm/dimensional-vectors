@@ -542,16 +542,18 @@ instance ((b*f) ~ (e*c), (c*d) ~ (a*f), (a*e) ~ (d*b))
   -- True
   -- >>> crossProduct vc3 vc4 == crossProduct' vc3 vc4
   -- True
-crossProduct' v1 v2 =  (b * f - e * c)
-                   <:  (c * d - f * a)
-                   <:. (a * e - d * b)
-  where 
-    a = vElemAt nat0 v1
-    b = vElemAt nat1 v1
-    c = vElemAt nat2 v1
-    d = vElemAt nat0 v2
-    e = vElemAt nat1 v2
-    f = vElemAt nat2 v2
+crossProduct' :: (Fractional a, (c*g) ~ (f*d), (d*e) ~ (g*b), (b*f) ~ (e*c))
+              => Vec '[b,c,d] a -> Vec '[e,f,g] a -> Vec '[c*g, d*e, b*f] a
+crossProduct' v1 v2 =  (c * g - f * d)
+                   <:  (d * e - g * b)
+                   <:. (b * f - e * c)
+  where
+    b = vElemAt nat0 v1
+    c = vElemAt nat1 v1
+    d = vElemAt nat2 v1
+    e = vElemAt nat0 v2
+    f = vElemAt nat1 v2
+    g = vElemAt nat2 v2
 
 -- ---------------------------------
 
