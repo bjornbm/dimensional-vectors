@@ -575,11 +575,11 @@ instance ((b*f) ~ (e*c), (c*d) ~ (a*f), (a*e) ~ (d*b))
     ]
 -}
 
--- For convenience.
+-- For convenience. TODO worthwhile?
 type family CrossProduct ds1 ds2 where
   CrossProduct '[b,c,d] '[e,f,g] = '[c*g, d*e, b*f]
 
--- | Constraint for vector cross product.
+-- | Constraint for vector cross product. TODO worthwhile?
 type CrossProductC ds1 ds2 = CrossProduct ds1 ds2 ~ CrossProduct ds2 ds1
 
 -- | Compute the cross product of two vectors with three elements.
@@ -633,6 +633,4 @@ crossProduct'' v1 v2 = rot (cp v1 v2 `elemSub` cp v2 v1)
   -- >>> show (2 *~ gram <: _3 <:. 32.3 *~ meter)
   -- "< 2.0e-3 kg, 3.0, 32.3 m >"
 instance (MapOutC Show' ds a, MapOut Show' ds a ~ String) => Show (Vec ds a)
-  where show = (\s -> "< " ++ s ++ " >")
-             . intercalate ", "
-             . mapOut Show
+  where show = ("< " ++) . (++ " >") . intercalate ", " . mapOut Show
