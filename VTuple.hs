@@ -6,7 +6,7 @@
 
 module VTuple (VTupleC (..), TupleVC (..)) where
 
-import MyHList
+import Vector
 import Nats
 import Numeric.Units.Dimensional.DK.Prelude
 import qualified Prelude

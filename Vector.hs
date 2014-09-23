@@ -6,13 +6,14 @@
 {-# LANGUAGE GADTSyntax #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module MyHList where
+module Vector where
 
 import qualified Prelude as P
 import Data.List (intercalate)
@@ -118,10 +119,13 @@ vCons = (<:)
 -- Append and snoc
 -- ---------------
 
-type family VAppend (ds1::[Dimension]) (ds2::[Dimension]) :: [Dimension]
+-- TODO Generic.
+type family Append (ds1::[k]) (ds2::[k]) :: [k]
   where
-    VAppend '[d]       ds  = d ': ds
-    VAppend (d ': ds1) ds2 = d ': VAppend ds1 ds2
+    Append '[d]       ds  = d ': ds
+    Append (d ': ds1) ds2 = d ': Append ds1 ds2
+
+type VAppend (ds1::[Dimension]) (ds2::[Dimension]) = Append ds1 ds2
 
 -- | Append the second vector to the first.
   --
@@ -131,7 +135,10 @@ vAppend :: Vec ds1 a -> Vec ds2 a -> Vec (VAppend ds1 ds2) a
 vAppend (ListVec xs) (ListVec ys) = ListVec (xs ++ ys)
 
 
-type VSnoc ds d = VAppend ds '[d]
+-- TODO generic.
+type Snoc ds d = Append ds '[d]
+
+type VSnoc (ds::[Dimension]) d = Snoc ds d
 
 -- | Append a quantity to the end of a vector.
   --
@@ -173,8 +180,11 @@ vHead (ListVec (x:xs)) = x *~ siUnit
 vHead' :: Num a => Vec (d ': ds) a -> Quantity d a
 vHead' = vElemAt nat0
 
-type family VHead (ds::[Dimension]) :: Dimension
-  where VHead (d ': ds) = d
+-- TODO generic.
+type family Head (ds::[k]) :: k
+  where Head (d ': ds) = d
+
+type VHead (ds::[Dimension]) = Head ds
 
 -- | Drop the first element of the vector.
   --
@@ -184,16 +194,22 @@ vTail :: Vec ds a -> Vec (VTail ds) a
 --vTail :: Vec (d1 ': d2 ': ds) a -> Vec (d2 ': ds) a
 vTail (ListVec xs) = ListVec (tail xs)
 
-type family VTail (ds::[Dimension]) :: [Dimension]
-  where VTail (d1 ': d2 ': ds) = d2 ': ds
+-- TODO generic.
+type family Tail (ds::[k]) :: [k]
+  where Tail (d1 ': d2 ': ds) = d2 ': ds
+
+type VTail (ds::[Dimension]) = Tail ds
 
 
 -- Dlist style (last, init)
 -- ------------------------
 
-type family VInit ds :: [Dimension] where
-  VInit '[d1, d2] = '[d1]
-  VInit (d ': ds) = d ': VInit ds
+-- TODO generic.
+type family Init (ds::[k]) :: [k] where
+  Init '[d1, d2] = '[d1]
+  Init (d ': ds) = d ': Init ds
+
+type VInit (ds::[Dimension]) = Init ds
 
 -- | Drop the last element of the vector.
   --
@@ -204,9 +220,12 @@ type family VInit ds :: [Dimension] where
 vInit :: Vec ds a -> Vec (VInit ds) a
 vInit (ListVec xs) = ListVec (init xs)
 
-type family VLast ds :: Dimension where
-  VLast '[d] = d
-  VLast (d ': ds) = VLast ds
+-- TODO generic.
+type family Last (ds::[k]) :: k where
+  Last '[d] = d
+  Last (d ': ds) = Last ds
+
+type VLast (ds::[Dimension]) = Last ds
 
 -- | Return the last element of the vector.
   --
@@ -220,10 +239,15 @@ vLast (ListVec xs) = last xs *~ siUnit
 
 -- Element lookup
 -- --------------
-type family VElemAt (n::Nat) (ds::[Dimension]) :: Dimension
+
+-- TODO generic.
+type family ElemAt (n::Nat) (ds::[k]) :: k
   where
-    VElemAt 0 (d ': ds) = d
-    VElemAt n (d ': ds) = VElemAt (n - 1) ds
+    ElemAt 0 (d ': ds) = d
+    ElemAt n (d ': ds) = ElemAt (n - 1) ds
+
+type VElemAt (n::Nat) (ds::[Dimension]) = ElemAt n ds
+
 
 -- | Look up the element at the given (zero-based) index.
   -- >>> vElemAt nat0 v == x
@@ -319,38 +343,40 @@ instance (ApplyC f d1 a, VIterateC (Apply f d1 a) (d2 ': ds) a) => VIterateC f (
 -- Mapping out to a list
 -- ---------------------
 
-class MapOutC f (ds::[Dimension]) a where
-  type MapOut f ds a
+class VMapOutC f (ds::[Dimension]) a where
+  type VMapOut f ds a
   -- | Map out a vector to a list by mapping an operation to each element
     -- in the vector. The operation must have the same return type for each
     -- element.
     --
-    -- >>> mapOut Show (vSing $ 32.3 *~ meter) :: [String]
+    -- >>> vMapOut Show (vSing $ 32.3 *~ meter) :: [String]
     -- ["32.3 m"]
-    -- >>> mapOut Show (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
+    -- >>> vMapOut Show (2 *~ gram <: _3 <:. 32.3 *~ meter) :: [String]
     -- ["2.0e-3 kg","3.0","32.3 m"]
-  mapOut :: f -> Vec ds a -> [MapOut f ds a]
+  vMapOut :: f -> Vec ds a -> [VMapOut f ds a]
 
-instance (ApplyC f d a, Num a) => MapOutC f '[d] a where
-  type MapOut f '[d] a = Apply f d a
-  mapOut f v = [apply f $ vHead v]
+instance (ApplyC f d a, Num a) => VMapOutC f '[d] a where
+  type VMapOut f '[d] a = Apply f d a
+  vMapOut f v = [apply f $ vHead v]
 
-instance ( ApplyC f d1 a, MapOutC f (d2 ': ds) a, Num a
-         , Apply f d1 a ~ MapOut f (d2 ': ds) a)
-        => MapOutC f (d1 ': d2 ': ds) a
+instance ( ApplyC f d1 a, VMapOutC f (d2 ': ds) a, Num a
+         , Apply f d1 a ~ VMapOut f (d2 ': ds) a)
+        => VMapOutC f (d1 ': d2 ': ds) a
   where
-    type MapOut f (d1 ': d2 ': ds) a = MapOut f (d2 ': ds) a -- :Apply f d a
-    mapOut f v = apply f (vHead v) : mapOut f (vTail v)
+    type VMapOut f (d1 ': d2 ': ds) a = VMapOut f (d2 ': ds) a -- :Apply f d a
+    vMapOut f v = apply f (vHead v) : vMapOut f (vTail v)
 
 
 
 -- Homogeneous vectors
 -- ===================
 
-type family Homo (ds::[Dimension]) :: Dimension where
+-- TODO generic.
+type family Homo (ds::[k]) :: k where
   Homo '[d] = d
   Homo (d ': d ': ds) = Homo (d ': ds)
 
+type VHomo (ds::[Dimension]) = Homo ds
 
 -- | Convert a homogeneous vector to a list.
   --
@@ -360,17 +386,17 @@ type family Homo (ds::[Dimension]) :: Dimension where
   -- [2.0 m,2.0 m]
   -- >>> toList vh2
   -- [2.0 m,1.0 m,4.0 m]
-  -- >>> toList vh2 == mapOut Id vh2
+  -- >>> toList vh2 == vMapOut Id vh2
   -- True
-toList :: Num a => Vec ds a -> [Quantity (Homo ds) a]
+toList :: Num a => Vec ds a -> [Quantity (VHomo ds) a]
 toList (ListVec xs) = xs *~~ siUnit
 
 -- | Principled implementation of 'toList'.
   --
   -- >>> toList vh2 == toList' vh2
   -- True
-toList' :: (MapOutC Id ds a) => Vec ds a -> [MapOut Id ds a]
-toList' = mapOut Id
+toList' :: (VMapOutC Id ds a) => Vec ds a -> [VMapOut Id ds a]
+toList' = vMapOut Id
 
 
 -- | Compute the sum of all elements in a homogeneous vector.
@@ -379,7 +405,7 @@ toList' = mapOut Id
   -- True
   -- >>> vSum vh2
   -- 7.0 m
-vSum :: Num a => Vec ds a -> Quantity (Homo ds) a
+vSum :: Num a => Vec ds a -> Quantity (VHomo ds) a
 vSum (ListVec xs) = P.sum xs *~ siUnit  -- sum . toList
 
 -- | Principled implementation of 'sum'.
@@ -388,7 +414,7 @@ vSum (ListVec xs) = P.sum xs *~ siUnit  -- sum . toList
   -- True
   -- >>> vSum vh2 == vSum' vh2
   -- True
-vSum' :: (Num a, MapOutC Id ds a, MapOut Id ds a ~ Quantity d a)
+vSum' :: (Num a, VMapOutC Id ds a, VMapOut Id ds a ~ Quantity d a)
       => Vec ds a -> Quantity d a
 vSum' = sum . toList'
 
@@ -401,7 +427,7 @@ vSum' = sum . toList'
   -- True
   -- >>> vNorm (z <: z <: z <:. z)
   -- 2.0
-vNorm :: Floating a => Vec ds a -> Quantity (Homo ds) a
+vNorm :: Floating a => Vec ds a -> Quantity (VHomo ds) a
 vNorm (ListVec xs) = P.sqrt (P.sum (zipWith (P.*) xs xs)) *~ siUnit
 
 -- | Principled implementation of 'vNorm'.
@@ -421,7 +447,7 @@ vNorm' v = sqrt (dotProduct v v)
   -- < 1.0 >
   -- >>> vNormalize vh2 == scaleVec (_1 / vNorm vh2) vh2
   -- True
-vNormalize :: Floating a => Vec ds a -> Vec (ScaleVec (DOne / Homo ds) ds a) a
+vNormalize :: Floating a => Vec ds a -> Vec (ScaleVec (DOne / VHomo ds) ds a) a
 vNormalize v = (_1 / vNorm v) `scaleVec` v
 --vNormalize v = recip (vNorm v) `scaleVec` v
 
@@ -433,7 +459,7 @@ vNormalize v = (_1 / vNorm v) `scaleVec` v
 -- Length
 -- ------
 
-type family VLength (ds::[Dimension]) :: Nat
+type family VLength (ds::[k]) :: Nat
   where
     VLength '[d] = 1
     VLength (d ': ds) = VLength ds + 1
@@ -448,7 +474,10 @@ vLength _ = Proxy
 -- Forth style rot
 -- ---------------
 
-type Rot ds = VSnoc (VTail ds) (VHead ds)
+-- TODO generic.
+type Rot ds = Snoc (Tail ds) (Head ds)
+
+type VRot (ds::[Dimension]) = Rot ds
 
 -- | Rotate a vector so that @<x,y,z> -> <y,z,x>@.
   --
@@ -458,7 +487,7 @@ type Rot ds = VSnoc (VTail ds) (VHead ds)
   -- True
   -- >>> (rot $ rot $ rot v) == v
   -- True
-rot :: Fractional a => Vec ds a -> Vec (Rot ds) a
+rot :: Fractional a => Vec ds a -> Vec (VRot ds) a
 rot (ListVec (x:xs)) = ListVec (xs ++ [x])
 
 -- | Principled implementation of 'rot'.
@@ -591,7 +620,7 @@ elemDiv' = vZipWith Div
 -- Dot product
 -- -----------
 
-type DotProduct ds1 ds2 = Homo (VZipWith Mul ds1 ds2)
+type DotProduct ds1 ds2 = VHomo (VZipWith Mul ds1 ds2)
 
 -- | Compute the dot product of two vectors.
   --
@@ -692,5 +721,5 @@ crossProduct'' v1 v2 = rot (cp v1 v2 `elemSub` cp v2 v1)
   -- "< 32.3 m >"
   -- >>> show (2 *~ gram <: _3 <:. 32.3 *~ meter)
   -- "< 2.0e-3 kg, 3.0, 32.3 m >"
-instance (MapOutC Show' ds a, MapOut Show' ds a ~ String) => Show (Vec ds a)
-  where show = ("< " ++) . (++ " >") . intercalate ", " . mapOut Show
+instance (VMapOutC Show' ds a, VMapOut Show' ds a ~ String) => Show (Vec ds a)
+  where show = ("< " ++) . (++ " >") . intercalate ", " . vMapOut Show
