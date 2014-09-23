@@ -37,7 +37,35 @@ import Nats
 -- >>> let vc4 = 1 *~ (meter / second) <: 2 *~ hertz <:. 3 *~ hertz
 -- >>> let f = (*) :: Length Double -> Mass Double -> FirstMassMoment Double
 
-infixr 5  <:, <:.
+
+-- Operators
+-- =========
+
+-- | Convention:
+--
+--   @>@  Vector to the left of operator (mnemonic: v)
+--   @<@  Vector to the right of operator (mnemonic: v)
+--   @.@  Last element of vector.
+--
+-- The above symbols were chosen to minimize risk of conflict with common
+-- operators from other libraries (based on Hoogle search).
+
+-- Operator fixity analogous with Prelude.
+
+infixl 9  >!!              -- Element lookup.
+infixl 7  *<, >*, >/, >.<  -- Multiplication/division.
+infixl 6  >+<, >-<         -- Addition/subtraction.
+infixr 5  <:, <:.          -- Construction.
+
+-- In these construction operators the @:@ cannot be to the left
+-- so the order of characters in the operator are somewhat reversed from
+-- the ideal we are forced to reverse order of characters from the ideal
+-- (for consistency with other operator conventions in this module the
+-- @>@ and @|@ should have been on the right side of the operator).
+
+
+-- The Vector type
+-- ===============
 
 -- | The vector type. TODO Make opaque.
   --
@@ -113,8 +141,8 @@ x <:. y = ListVec [x /~ siUnit, y /~ siUnit]
   -- >>> vCons x (vSing y)
   -- < 2.0 m, 3.0 kg >
 (<:), vCons  :: Fractional a => Quantity d a -> Vec ds a -> Vec (d ': ds) a
-x <: ListVec xs = ListVec (x /~ siUnit : xs)
-vCons = (<:)
+vCons x (ListVec xs) = ListVec (x /~ siUnit : xs)
+(<:) = vCons
 
 
 -- Append and snoc
@@ -222,9 +250,10 @@ type VInit (ds::[Dimension]) = Init ds
   -- True
   -- >>> vElemAt nat2 v == z
   -- True
-vElemAt :: (KnownNat n, Num a)
+vElemAt, (>!!) :: (KnownNat n, Num a)
         => Proxy (n::Nat) -> Vec ds a -> Quantity (VElemAt n ds) a
 vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
+(>!!) = vElemAt
 
 type VElemAt (n::Nat) (ds::[Dimension]) = ElemAt n ds
 
@@ -408,10 +437,11 @@ vNorm' v = sqrt (dotProduct v v)
   --
   -- >>> vNormalize (vSing x)
   -- < 1.0 >
-  -- >>> vNormalize vh2 == scaleVec (_1 / vNorm vh2) vh2
+  -- >>> vNormalize vh2 == vh2 >/ vNorm vh2
   -- True
 vNormalize :: Floating a => Vec ds a -> Vec (ScaleVec (DOne / VHomo ds) ds a) a
-vNormalize v = (_1 / vNorm v) `scaleVec` v
+--vNormalize v = (_1 / vNorm v) `scaleVec` v
+vNormalize v = v >/ vNorm v
 --vNormalize v = recip (vNorm v) `scaleVec` v
 
 
@@ -472,9 +502,10 @@ type ScaleVec d ds a = VMap (UnaryR Mul d a) ds
   --
   -- >>> scaleVec x v == vMap (UnaryR Mul x) v
   -- True
-scaleVec :: Fractional a
-         => Quantity d a -> Vec ds a -> Vec (ScaleVec d ds a) a
+scaleVec, (*<) :: Fractional a
+  => Quantity d a -> Vec ds a -> Vec (ScaleVec d ds a) a
 scaleVec x v = repMap (P.* (x /~ siUnit)) v
+(*<) = scaleVec
 
 -- | Principled implementation of 'scaleVec'.
   --
@@ -483,6 +514,15 @@ scaleVec x v = repMap (P.* (x /~ siUnit)) v
 scaleVec' :: (VMapC (UnaryR Mul d a) ds a, Fractional a)
           => Quantity d a -> Vec ds a -> Vec (ScaleVec d ds a) a
 scaleVec' x = vMap (UnaryR Mul x)  -- Rigorious implementation.
+
+(>*) :: Fractional a
+  => Vec ds a -> Quantity d a -> Vec (ScaleVec d ds a) a
+(>*) = flip (*<)
+
+
+(>/) :: Fractional a
+  => Vec ds a -> Quantity d a -> Vec (ScaleVec (DOne / d) ds a) a
+v >/ x = v >* (_1 / x)
 
 -- | Scale a vector by a dimensionless quantity. This avoids the trivial
   -- constraint @HMap (MulD, DOne) ds ds@ for this common case.
@@ -504,8 +544,9 @@ scaleVec1 x v = repMap (P.* (x /~ one)) v
   --
   -- >>> elemAdd v v == scaleVec _2 v
   -- True
-elemAdd :: Num a => Vec ds a -> Vec ds a -> Vec ds a
+elemAdd, (>+<) :: Num a => Vec ds a -> Vec ds a -> Vec ds a
 elemAdd = repZipWith (P.+)
+(>+<) = elemAdd
 
 -- | Principled implementation of 'elemAdd'.
   --
@@ -521,8 +562,9 @@ elemAdd' v1 v2 = vZipWith Add v1 v2
   --
   -- >>> elemSub v v == scaleVec _0 v
   -- True
-elemSub :: Num a => Vec ds a -> Vec ds a -> Vec ds a
+elemSub, (>-<) :: Num a => Vec ds a -> Vec ds a -> Vec ds a
 elemSub = repZipWith (P.-)
+(>-<) = elemSub
 
 -- | Principled implementation of 'elemSub'.
   --
@@ -585,8 +627,9 @@ type DotProduct ds1 ds2 = VHomo (VZipWith Mul ds1 ds2)
   -- True
   -- >>> dotProduct v vd2
   -- 18.0 m kg
-dotProduct :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
+dotProduct, (>.<) :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a
 dotProduct (ListVec xs) (ListVec ys) = P.sum (zipWith (P.*) xs ys) *~ siUnit
+(>.<) = dotProduct
 
 --type DotProductC ds1 ds2 = HomoC (VZipWith Mul ds1 ds2)
 

@@ -36,7 +36,35 @@ import qualified Prelude
 -- >>> let f = (*) :: Length Double -> Mass Double -> FirstMassMoment Double
 -- >>> let m = vc3 |:. v
 
+
+-- Operators
+-- =========
+
+-- | Convention:
+--
+--   @>@  Vector to the left of operator (mnemonic: v)
+--   @<@  Vector to the right of operator (mnemonic: v)
+--   @.@  Last element of vector.
+--
+-- The above symbols were chosen to minimize risk of conflict with common
+-- operators from other libraries (based on Hoogle search).
+
+-- Operator fixity analogous with Prelude.
+
+--infixl 7  *|, |*, |*|, |*<, >*|
+--infixl 6  |+|, |-|
 infixr 5  |:, |:.
+
+-- In these construction operators the @:@ cannot be to the left
+-- so the order of characters in the operator are somewhat reversed from
+-- the ideal we are forced to reverse order of characters from the ideal
+-- (for consistency with other operator conventions in this module the
+-- @>@ and @|@ should have been on the right side of the operator).
+
+
+
+-- The Matrix type
+-- ===============
 
 -- | A matrix is a list of rows (which in turn are lists). The matrix construction
 -- functions available (i.e. 'consRow') guarantee that matrices are well-formed
