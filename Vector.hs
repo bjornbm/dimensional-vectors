@@ -22,6 +22,7 @@ import GHC.TypeLits hiding (type (*))
 import Numeric.NumType.DK (NumType (Pos2))
 import Numeric.Units.Dimensional.DK.Prelude
 import Apply
+import ListKind
 import Nats
 
 -- $setup
@@ -119,12 +120,6 @@ vCons = (<:)
 -- Append and snoc
 -- ---------------
 
--- TODO Generic.
-type family Append (ds1::[k]) (ds2::[k]) :: [k]
-  where
-    Append '[d]       ds  = d ': ds
-    Append (d ': ds1) ds2 = d ': Append ds1 ds2
-
 type VAppend (ds1::[Dimension]) (ds2::[Dimension]) = Append ds1 ds2
 
 -- | Append the second vector to the first.
@@ -134,9 +129,6 @@ type VAppend (ds1::[Dimension]) (ds2::[Dimension]) = Append ds1 ds2
 vAppend :: Vec ds1 a -> Vec ds2 a -> Vec (VAppend ds1 ds2) a
 vAppend (ListVec xs) (ListVec ys) = ListVec (xs ++ ys)
 
-
--- TODO generic.
-type Snoc ds d = Append ds '[d]
 
 type VSnoc (ds::[Dimension]) d = Snoc ds d
 
@@ -180,10 +172,6 @@ vHead (ListVec (x:xs)) = x *~ siUnit
 vHead' :: Num a => Vec (d ': ds) a -> Quantity d a
 vHead' = vElemAt nat0
 
--- TODO generic.
-type family Head (ds::[k]) :: k
-  where Head (d ': ds) = d
-
 type VHead (ds::[Dimension]) = Head ds
 
 -- | Drop the first element of the vector.
@@ -194,38 +182,11 @@ vTail :: Vec ds a -> Vec (VTail ds) a
 --vTail :: Vec (d1 ': d2 ': ds) a -> Vec (d2 ': ds) a
 vTail (ListVec xs) = ListVec (tail xs)
 
--- TODO generic.
-type family Tail (ds::[k]) :: [k]
-  where Tail (d1 ': d2 ': ds) = d2 ': ds
-
 type VTail (ds::[Dimension]) = Tail ds
 
 
 -- Dlist style (last, init)
 -- ------------------------
-
--- TODO generic.
-type family Init (ds::[k]) :: [k] where
-  Init '[d1, d2] = '[d1]
-  Init (d ': ds) = d ': Init ds
-
-type VInit (ds::[Dimension]) = Init ds
-
--- | Drop the last element of the vector.
-  --
-  -- >>> vInit v == x <:. y
-  -- True
-  -- >>> vInit (vSnoc v x) == v
-  -- True
-vInit :: Vec ds a -> Vec (VInit ds) a
-vInit (ListVec xs) = ListVec (init xs)
-
--- TODO generic.
-type family Last (ds::[k]) :: k where
-  Last '[d] = d
-  Last (d ': ds) = Last ds
-
-type VLast (ds::[Dimension]) = Last ds
 
 -- | Return the last element of the vector.
   --
@@ -236,18 +197,23 @@ type VLast (ds::[Dimension]) = Last ds
 vLast :: Num a => Vec ds a -> Quantity (VLast ds) a
 vLast (ListVec xs) = last xs *~ siUnit
 
+type VLast (ds::[Dimension]) = Last ds
+
+
+-- | Drop the last element of the vector.
+  --
+  -- >>> vInit v == x <:. y
+  -- True
+  -- >>> vInit (vSnoc v x) == v
+  -- True
+vInit :: Vec ds a -> Vec (VInit ds) a
+vInit (ListVec xs) = ListVec (init xs)
+
+type VInit (ds::[Dimension]) = Init ds
+
 
 -- Element lookup
 -- --------------
-
--- TODO generic.
-type family ElemAt (n::Nat) (ds::[k]) :: k
-  where
-    ElemAt 0 (d ': ds) = d
-    ElemAt n (d ': ds) = ElemAt (n - 1) ds
-
-type VElemAt (n::Nat) (ds::[Dimension]) = ElemAt n ds
-
 
 -- | Look up the element at the given (zero-based) index.
   -- >>> vElemAt nat0 v == x
@@ -259,6 +225,8 @@ type VElemAt (n::Nat) (ds::[Dimension]) = ElemAt n ds
 vElemAt :: (KnownNat n, Num a)
         => Proxy (n::Nat) -> Vec ds a -> Quantity (VElemAt n ds) a
 vElemAt n (ListVec xs) = (xs !! fromInteger (natVal n)) *~ siUnit
+
+type VElemAt (n::Nat) (ds::[Dimension]) = ElemAt n ds
 
 
 
@@ -371,11 +339,6 @@ instance ( ApplyC f d1 a, VMapOutC f (d2 ': ds) a, Num a
 -- Homogeneous vectors
 -- ===================
 
--- TODO generic.
-type family Homo (ds::[k]) :: k where
-  Homo '[d] = d
-  Homo (d ': d ': ds) = Homo (d ': ds)
-
 type VHomo (ds::[Dimension]) = Homo ds
 
 -- | Convert a homogeneous vector to a list.
@@ -459,25 +422,17 @@ vNormalize v = (_1 / vNorm v) `scaleVec` v
 -- Length
 -- ------
 
-type family VLength (ds::[k]) :: Nat
-  where
-    VLength '[d] = 1
-    VLength (d ': ds) = VLength ds + 1
-
 -- | Return the length of a vector.
   -- >>> vLength v == nat3
   -- True
 vLength :: Vec ds a -> Proxy (VLength ds)
 vLength _ = Proxy
 
+type VLength (ds::[Dimension]) = Elements ds
+
 
 -- Forth style rot
 -- ---------------
-
--- TODO generic.
-type Rot ds = Snoc (Tail ds) (Head ds)
-
-type VRot (ds::[Dimension]) = Rot ds
 
 -- | Rotate a vector so that @<x,y,z> -> <y,z,x>@.
   --
@@ -489,6 +444,8 @@ type VRot (ds::[Dimension]) = Rot ds
   -- True
 rot :: Fractional a => Vec ds a -> Vec (VRot ds) a
 rot (ListVec (x:xs)) = ListVec (xs ++ [x])
+
+type VRot (ds::[Dimension]) = Rot ds
 
 -- | Principled implementation of 'rot'.
   --
