@@ -36,6 +36,7 @@ type Snoc ds d = Append ds '[d]
 type family Head (ds::[k]) :: k
   where Head (d ': ds) = d
 
+-- \ Non-empty tail.
 type family Tail (ds::[k]) :: [k]
   where Tail (d1 ': d2 ': ds) = d2 ': ds
 
@@ -47,9 +48,10 @@ type family Last (ds::[k]) :: k where
   Last '[d] = d
   Last (d ': ds) = Last ds
 
+-- | Non-empty init.
 type family Init (ds::[k]) :: [k] where
   Init '[d1, d2] = '[d1]
-  Init (d ': ds) = d ': Init ds
+  Init (d1 ': d2 ': ds) = d1 ': Init (d2 ': ds)
 
 
 -- Element lookup
