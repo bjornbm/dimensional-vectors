@@ -87,7 +87,8 @@ type SquareC vs = (RectangularC vs, Rows vs ~ Cols vs)
 -- Matrix construction
 -- ===================
 
-rowMatrix :: Vec ds a -> Mat '[ds] a
+-- | Construct matrix with a single row from a vector.
+rowMatrix :: Vec ds a -> Mat (Row ds) a
 rowMatrix (ListVec xs) = ListMat [xs]
 
 consRow :: (VLength ds ~ Cols vs)
@@ -146,6 +147,8 @@ instance (MMapOutC f (v2 ': vs) a, VMapOutC f v1 a, MMapOut f (v2 ': vs) a ~ VMa
 type family Column ds where
   Column (d ': '[]) = '[d] ': '[]
   Column (d ': ds)  = '[d] ': Column ds
+
+type Row (ds::[k]) = '[ds]  -- For symmetry.
 
 -- | Create a single column matrix from the vector.
   --
