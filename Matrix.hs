@@ -139,6 +139,67 @@ instance (MMapOutC f (v2 ': vs) a, VMapOutC f v1 a, MMapOut f (v2 ': vs) a ~ VMa
   mMapOut f m = vMapOut f (headRow m) : mMapOut f (tailRows m)
 
 
+-- Colums and transpose
+-- ====================
+
+-- TODO generic?
+type family Column ds where
+  Column (d ': '[]) = '[d] ': '[]
+  Column (d ': ds)  = '[d] ': Column ds
+
+-- | Create a single column matrix from the vector.
+  --
+  -- >>> colMatrix (vSing x) == rowMatrix (vSing x)
+  -- True
+  -- >>> colMatrix (2 *~ gram <: _3 <:. 32.3 *~ meter)
+  -- << 2.0e-3 kg >,
+  --  < 3.0 >,
+  --  < 32.3 m >>
+colMatrix :: Vec ds a -> Mat (Column ds) a
+colMatrix (ListVec xs) = ListMat (fmap return xs)
+
+
+-- TODO generic?
+type family ConsCol ds vs where
+  ConsCol '[d] '[v] = '[d ': v]
+  ConsCol (d ': ds) (v ': vs) = (d ': v) ': ConsCol ds vs
+
+-- | Prepend a column to a matrix.
+  --
+  -- >>> consCol (vSing x) (colMatrix (vSing y)) == rowMatrix (x <:. y)
+  -- True
+  -- >>> consCol (x <:. y) (colMatrix (z <:. x)) == (x <:. z) |:. (y <:. x)
+  -- True
+  -- >>> consCol (x <:. y) m
+  -- << 2.0 m, 3.0 m, 2.0, 1.0 >,
+  --  < 3.0 kg, 2.0 m, 3.0 kg, 1.0 >>
+consCol :: Vec ds a -> Mat vs a -> Mat (ConsCol ds vs) a
+consCol (ListVec xs) (ListMat vs) = ListMat (zipWith (:) xs vs)
+
+-- TODO Could have put this type in TransposeC, but since it is
+-- stand-alone perhaps I could move it to ListKind instead. That
+-- might, in fact, be a good approach for all HOFs!
+type family Transpose (vs::[[k]]) :: [[k]] where
+  Transpose '[v] = Column v
+  Transpose (v ': vs) = ConsCol v (Transpose vs)
+
+class TransposeC vs where
+  -- | Transpose a matrix.
+    --
+    -- >>> transpose (transpose m) == m
+    -- True
+    -- >>> transpose (colMatrix v) == rowMatrix v
+    -- True
+    -- >>> transpose (rowMatrix v) == colMatrix v
+    -- True
+    -- >>> transpose (v |:. vc4) == consCol v (colMatrix vc4)
+    -- True
+  transpose :: Mat vs a -> Mat (Transpose vs) a
+
+instance TransposeC '[v] where
+  transpose = colMatrix . headRow  -- Principled!
+instance TransposeC (v2 ': vs) => TransposeC (v1 ': v2 ': vs) where
+  transpose m = consCol (headRow m) (transpose (tailRows m))  -- Principled!
 
 
 -- Show
@@ -146,6 +207,9 @@ instance (MMapOutC f (v2 ': vs) a, VMapOutC f v1 a, MMapOut f (v2 ': vs) a ~ VMa
 
 -- | We provide a custom @Show@ instance for vectors.
   --
+  -- >>> m
+  -- << 3.0 m, 2.0, 1.0 >,
+  --  < 2.0 m, 3.0 kg, 1.0 >>
   -- >>> show m
   -- "<< 3.0 m, 2.0, 1.0 >,\n < 2.0 m, 3.0 kg, 1.0 >>"
   -- >>> show (rowMatrix (2 *~ gram <: _3 <:. 32.3 *~ meter))
