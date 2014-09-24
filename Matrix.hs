@@ -117,24 +117,44 @@ type ConsRow v (vs::[k]) = v ': vs  -- For symmetry.
 type AppendRows vs1 vs2 = Append vs1 vs2
 
 -- | Construct a matrix with a single row from a vector.
+  --
+  -- >>> rowMatrix v
+  -- << 2.0 m, 3.0 kg, 1.0 >>
 rowMatrix :: Vec ds a -> Mat (Row ds) a
 rowMatrix (ListVec xs) = ListMat [xs]
 
-consRow :: (VLength ds ~ Cols vs)
+-- | Prepend a row to a matrix.
+  --
+  -- >>> consRow vc3 (rowMatrix v)
+  -- << 3.0 m, 2.0, 1.0 >,
+  --  < 2.0 m, 3.0 kg, 1.0 >>
+consRow, (|:) :: (VLength ds ~ Cols vs)
         => Vec ds a -> Mat vs a -> Mat (ConsRow ds vs) a
 consRow (ListVec xs) (ListMat vs) = ListMat (xs:vs)
-
-(|:) :: (VLength ds ~ Cols vs)
-     => Vec ds a -> Mat vs a -> Mat (ds ': vs) a
 (|:) = consRow
 
+-- | Create a matrix with two rows.
+  --
+  -- >>> vc3 |:. v == consRow vc3 (rowMatrix v)
+  -- True
 (|:.) :: (VLength ds1 ~ VLength ds2) => Vec ds1 a -> Vec ds2 a -> Mat '[ds1,ds2] a
 v1 |:. v2 = v1 |: rowMatrix v2
 
+
+-- | Append the rows of the second matrix to the first.
+  --
+  -- >>> appendRows (rowMatrix vc3) (rowMatrix v) == vc3 |:. v
+  -- True
 appendRows :: (Cols vs1 ~ Cols vs2)
            => Mat vs1 a -> Mat vs2 a -> Mat (AppendRows vs1 vs2) a
 appendRows (ListMat vs1) (ListMat vs2) = ListMat (vs1 ++ vs2)
 
+-- | Append the row at the bottom of the matrix.
+  --
+  -- >>> snocRow (rowMatrix vc3) v == vc3 |:. v
+  -- True
+  -- >>> snocRow m23 v == appendRows m23 (rowMatrix v)
+  -- True
 snocRow :: (Cols vs ~ VLength ds) => Mat vs a -> Vec ds a -> Mat (Snoc vs ds) a
 snocRow m v = appendRows m (rowMatrix v)
 
@@ -147,7 +167,7 @@ type family Column ds where
   Column (d ': '[]) = '[d] ': '[]
   Column (d ': ds)  = '[d] ': Column ds
 
--- | Create a single column matrix from the vector.
+-- | Create a matrix with a single column matrix from a vector.
   --
   -- >>> colMatrix (vSing x) == rowMatrix (vSing x)
   -- True
@@ -180,7 +200,7 @@ consCol (ListVec xs) (ListMat vs) = ListMat (zipWith (:) xs vs)
 
 type AppendCols vs1 vs2 = Transpose (Append (Transpose vs1) (Transpose vs2))
 
--- | Append the second matrix to the first in a column-wise fashion.
+-- | Append the colums of the second matrix to the first.
   --
   -- >>> appendCols (mSing x) (mSing y) == rowMatrix (x <:. y)
   -- True
@@ -193,11 +213,10 @@ appendCols (ListMat vs1) (ListMat vs2) = ListMat (zipWith (++) vs1 vs2)
   --
   -- >>> appendCols m23 m23 == appendCols' m23 m23
   -- True
-appendCols'
-  :: (TransposeC' (Append (Transpose vs1) (Transpose vs2)),
-      TransposeC' vs2, TransposeC' vs1,
-      Cols (Transpose vs1) ~ Cols (Transpose vs2)  -- Rows vs1 ~ Rows vs2
-     ) => Mat vs1 a -> Mat vs2 a -> Mat (AppendCols vs1 vs2) a
+appendCols' :: ( TransposeC' (AppendRows (Transpose vs1) (Transpose vs2))
+  , TransposeC' vs1, TransposeC' vs2
+  , Cols (Transpose vs1) ~ Cols (Transpose vs2)  -- Rows vs1 ~ Rows vs2
+  ) => Mat vs1 a -> Mat vs2 a -> Mat (AppendCols vs1 vs2) a
 appendCols' m1 m2 = transpose' (appendRows (transpose' m1) (transpose' m2))
 
 
