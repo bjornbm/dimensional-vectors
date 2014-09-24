@@ -75,33 +75,6 @@ instance Num a => VBinaryQC Dot v1 v2 a where
   vBinaryQ Dot x y = dotProduct x y
 
 
--- Binary to unary conversion
--- --------------------------
-
--- | Type for making a binary operation unary, with the left argument
-  -- pre-supplied.
-  --
-  -- >>> vUnaryQ (VUnaryL v Dot) vd2 == vBinaryQ Dot v vd2
-  -- True
-data VUnaryL ds a f = VUnaryL (Vec ds a) f
-
-instance VBinaryQC f ds1 ds2 a => VUnaryQC (VUnaryL ds1 a f) ds2 a where
-  type VUnaryQ (VUnaryL ds1 a f) ds2 = VBinaryQ f ds1 ds2
-  vUnaryQ (VUnaryL v1 f) v2 = vBinaryQ f v1 v2
-
-
--- | Type for making a binary operation unary, with the right argument
-  -- pre-supplied.
-  --
-  -- >>> vUnaryQ (VUnaryR Dot v) vd2 == vBinaryQ Dot vd2 v
-  -- True
-data VUnaryR f ds a = VUnaryR f (Vec ds a)
-
-instance VBinaryQC f ds1 ds2 a => VUnaryQC (VUnaryR f ds2 a) ds1 a where
-  type VUnaryQ (VUnaryR f ds2 a) ds1 = VBinaryQ f ds1 ds2
-  vUnaryQ (VUnaryR f v2) v1 = vBinaryQ f v1 v2
-
-
 -- Operations from vectors to vectors
 -- ==================================
 
@@ -128,11 +101,78 @@ instance VUnaryVC (Vec ds1 a -> Vec ds2 a) ds1 a where
   vUnaryV f = f
 
 
--- ==============================
+-- Binary operations
+-- -----------------
 
--- Vector to anything.
+class VBinaryVC f v1 v2 a where
+  type VBinaryV f v1 v2 :: [Dimension]
+  -- | Apply a binary operation to two quantities.
+    --
+    -- >>> vBinaryV Add v v == elemAdd v v
+    -- True
+  vBinaryV :: f -> Vec v1 a -> Vec v2 a -> Vec (VBinaryV f v1 v2) a
+
+-- Example instance for addition.
+instance Num a => VBinaryVC Add v v a where
+  type VBinaryV Add v v = v
+  vBinaryV Add = elemAdd
+
+-- | Const function.
+  --
+  -- vBinaryV Const v vc3 == v
+  -- True
+data Const = Const
+instance VBinaryVC Const v1 v2 a where
+  type VBinaryV Const v1 v2 = v1
+  vBinaryV Const = const
+
+
+
+-- Binary to unary conversion
+-- ==========================
+
+-- | Type for making a binary operation unary, with the left argument
+  -- pre-supplied.
+  --
+  -- >>> vUnaryQ (VUnaryL v Dot) vd2 == vBinaryQ Dot v vd2
+  -- True
+  -- >>> vUnaryV (VUnaryL v Const) vd2 == vBinaryV Const v vd2
+  -- True
+data VUnaryL ds a f = VUnaryL (Vec ds a) f
+
+instance VBinaryQC f ds1 ds2 a => VUnaryQC (VUnaryL ds1 a f) ds2 a where
+  type VUnaryQ (VUnaryL ds1 a f) ds2 = VBinaryQ f ds1 ds2
+  vUnaryQ (VUnaryL v1 f) v2 = vBinaryQ f v1 v2
+
+instance VBinaryVC f ds1 ds2 a => VUnaryVC (VUnaryL ds1 a f) ds2 a where
+  type VUnaryV (VUnaryL ds1 a f) ds2 = VBinaryV f ds1 ds2
+  vUnaryV (VUnaryL v1 f) v2 = vBinaryV f v1 v2
+
+
+-- | Type for making a binary operation unary, with the right argument
+  -- pre-supplied.
+  --
+  -- >>> vUnaryQ (VUnaryR Dot v) vd2 == vBinaryQ Dot vd2 v
+  -- True
+  -- >>> vUnaryV (VUnaryR Const v) vd2 == vBinaryV Const vd2 v
+  -- True
+data VUnaryR f ds a = VUnaryR f (Vec ds a)
+
+instance VBinaryQC f ds1 ds2 a => VUnaryQC (VUnaryR f ds2 a) ds1 a where
+  type VUnaryQ (VUnaryR f ds2 a) ds1 = VBinaryQ f ds1 ds2
+  vUnaryQ (VUnaryR f v2) v1 = vBinaryQ f v1 v2
+
+instance VBinaryVC f ds1 ds2 a => VUnaryVC (VUnaryR f ds2 a) ds1 a where
+  type VUnaryV (VUnaryR f ds2 a) ds1 = VBinaryV f ds1 ds2
+  vUnaryV (VUnaryR f v2) v1 = vBinaryV f v1 v2
+
+
+
+-- Vector to anything
+-- ==================
+
 class VApplyC f ds a where
-  type VApply f ds a :: k  -- Has to be * for vApply to make sense.
+  type VApply f ds a :: k  -- Has to be * for vApply to make sense?
   -- | Apply a function with arbitrary return type to a vector.
     --
     -- >>> vApply Id v == v

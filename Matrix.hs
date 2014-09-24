@@ -540,6 +540,7 @@ mElemDiv' = mZipWith Div
 -- Matrix/vector multiplication
 -- ============================
 
+-- TODO Better to use the type MatVec' rather than a type family?
 type family MatVec vs v where
   MatVec '[v1] v2 = '[DotProduct v1 v2]
   MatVec (v1 ': vs) v2 = DotProduct v1 v2 ': MatVec vs v2
@@ -552,8 +553,8 @@ matVec (ListMat vs) (ListVec v) = ListVec (map (P.sum . zipWith (P.*) v) vs)
   --
   -- >>> matVec' (rowMatrix v) vd2 == matVec (rowMatrix v) vd2
   -- True
-matVec' :: MapRowQC (VUnaryR Dot ds a) vs a
-        => Mat vs a -> Vec ds a -> Vec (MapRowQ (VUnaryR Dot ds a) vs) a
+matVec' :: MapRowQC (VUnaryR Dot v a) vs a
+        => Mat vs a -> Vec v a -> Vec (MatVec' vs v a) a
 matVec' m v = mapRowQ (VUnaryR Dot v) m
 type MatVec' vs v a = MapRowQ (VUnaryR Dot v a) vs
 
