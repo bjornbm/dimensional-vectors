@@ -296,24 +296,106 @@ instance ( VMapC f v1 a, MMapC f (v2 ': vs) a
 -- Mapping to each row
 -- -------------------
 
-class ApplyVC f vs a where
-  type ApplyV f vs a :: k
-  applyV :: f -> Vec vs a -> ApplyV f vs a
+-- Vector to anything.
+class ApplyVC f ds a where
+  type ApplyV f ds a :: k
+  -- |
+    -- >>> applyV Id v == v
+    -- True
+    -- >>> applyV Sum vh1 == vSum vh1
+    -- True
+  applyV :: f -> Vec ds a -> ApplyV f ds a
 
-instance ApplyVC Id vs a where
-  type ApplyV Id vs a = Vec vs a
+instance ApplyVC Id ds a where
+  type ApplyV Id ds a = Vec ds a
   applyV Id = id
 
 data Sum = Sum
-instance Num a => ApplyVC Sum vs a where
-  type ApplyV Sum vs a = Quantity (Homo vs) a
+
+instance Num a => ApplyVC Sum ds a where
+  type ApplyV Sum ds a = Quantity (Homo ds) a
   applyV Sum = vSum
 
-type family MMapV f (vs::[[Dimension]]) a :: [k] where
-  MMapV f '[v] a = ApplyV f v a
-  MMapV f (v1 ': v2 ': vs) a = ApplyV f v1 a ': MMapV f (v2 ': vs) a
+-- Vector to quantity.
+class ApplyVQC f ds a where
+  type ApplyVQ f ds :: Dimension
+  -- |
+    -- >>> applyVQ Sum vh1 == vSum vh1
+    -- True
+  applyVQ :: f -> Vec ds a -> Quantity (ApplyVQ f ds) a
+
+-- Example instance for Sum.
+instance Num a => ApplyVQC Sum ds a where
+  type ApplyVQ Sum ds = Homo ds
+  applyVQ Sum = vSum
+
+-- Instance for functions.
+instance ApplyVQC (Vec ds a -> Quantity d a) ds a where
+  type ApplyVQ (Vec ds a -> Quantity d a) ds = d
+  applyVQ f = f
+
+-- Vector to vector.
+class ApplyVVC f ds a where
+  type ApplyVV f ds :: [Dimension]
+  -- |
+    -- >>> applyVV Id v == v
+    -- True
+  applyVV :: f -> Vec ds a -> Vec (ApplyVV f ds) a
+
+-- Example instance for Id.
+instance Num a => ApplyVVC Id ds a where
+  type ApplyVV Id ds = ds
+  applyVV Id = id
+
+-- Instance for functions.
+instance ApplyVVC (Vec ds1 a -> Vec ds2 a) ds1 a where
+  type ApplyVV (Vec ds1 a -> Vec ds2 a) ds1 = ds2
+  applyVV f = f
 
 
+-- | Mapping a function from a vector to a vector over each row of
+  -- a matrix.
+type family MapVV f (vs::[[Dimension]]) :: [[Dimension]] where
+  MapVV f '[v] = '[ApplyVV f v]
+  MapVV f (v1 ': v2 ': vs) = ApplyVV f v1 ': MapVV f (v2 ': vs)
+
+class MapVVC f vs a where
+  -- | Map a function from a vector to a vector over each row of
+    -- a matrix.
+    --
+    -- >>> mapVV Id m23 == m23
+    -- True
+  mapVV :: f -> Mat vs a -> Mat (MapVV f vs) a
+
+instance ApplyVVC f v a => MapVVC f '[v] a where
+  mapVV f m = rowMatrix (applyVV f (headRow m))
+
+instance ( ApplyVVC f v1 a, MapVVC f (v2 ': vs) a
+  , Cols (MapVV f (v2 ': vs)) ~ Elements (ApplyVV f v1)
+  ) => MapVVC f (v1 ': v2 ': vs) a where
+  mapVV f m = applyVV f (headRow m) |: mapVV f (tailRows m)
+
+
+-- | Mapping a function from a vector to a quantity over each row of
+  -- a matrix.
+type family MapVQ f (vs::[[Dimension]]) :: [Dimension] where
+  MapVQ f '[v] = '[ApplyVQ f v]
+  MapVQ f (v1 ': v2 ': vs) = ApplyVQ f v1 ': MapVQ f (v2 ': vs)
+
+class MapVQC f vs a where
+  -- | Map a function from a vector to a quantity over each row of
+    -- a matrix.
+    --
+    -- >>> mapVQ Sum (vh1 |:. vh2) == vSum vh1 <:. vSum vh2
+    -- True
+  mapVQ :: f -> Mat vs a -> Vec (MapVQ f vs) a
+
+instance (Fractional a, ApplyVQC f v a) => MapVQC f '[v] a where
+  mapVQ f m = vSing (applyVQ f (headRow m))
+
+instance (Fractional a, ApplyVQC f v1 a, MapVQC f (v2 ': vs) a)
+  => MapVQC f (v1 ': v2 ': vs) a where
+  mapVQ f m = applyVQ f (headRow m) <: mapVQ f (tailRows m)
 
 
 -- Zipping each element
