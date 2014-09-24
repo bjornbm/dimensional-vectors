@@ -90,3 +90,72 @@ type family Elements (ds::[k]) :: Nat
 -- ---------------
 
 type Rot ds = Snoc (Tail ds) (Head ds)
+
+
+
+-- Matrices (lists of lists)
+-- =========================
+
+-- We arbitrarily pick the convention that matrices are a list of
+-- rows (as opposed to columns which would also be a valid choice).
+-- The below examples illustrate the chosen layout.
+--
+-- A single row matrix:
+--
+--    [[x,y,z]]
+--
+-- A single column matrix:
+--
+--    [ [x]
+--    , [y]
+--    , [z]
+--    ]
+--
+-- A 3x3 matrix:
+--
+--   [ [x,y,z]
+--   , [t,y,v]
+--   , [q,r,s]
+--   ]
+--
+
+
+-- | Conversion from a list to a single row matrix.
+type Row (ds::[k]) = '[ds]  -- For symmetry.
+
+-- | Addition of a row to the top of a matrix.
+type ConsRow v (vs::[k]) = v ': vs  -- For symmetry.
+
+-- | Appending rows to the bottom of a matrix.
+type AppendRows vs1 vs2 = Append vs1 vs2
+
+-- | The top row of a matrix as a list.
+type HeadRow  (vs::[[k]]) = Head vs
+
+-- | Dropping the top row of a matrix.
+type TailRows (vs::[[k]]) = Tail vs
+
+
+-- | Conversion from a list to a single column matrix.
+type family Column ds where
+  Column (d ': '[]) = '[d] ': '[]
+  Column (d ': ds)  = '[d] ': Column ds
+
+-- | Addition of a row to the left of a matrix.
+type family ConsCol ds vs where
+  ConsCol '[d] '[v] = '[d ': v]
+  ConsCol (d ': ds) (v ': vs) = (d ': v) ': ConsCol ds vs
+
+-- | Appending columns to the right of a matrix.
+type AppendCols vs1 vs2 = Transpose (Append (Transpose vs1) (Transpose vs2))
+
+-- | The leftmost column of a matrix as a list.
+type HeadCol  vs = HeadRow  (Transpose vs)
+
+-- | Dropping the leftmost column of a matrix.
+type TailCols vs = Transpose (TailRows (Transpose vs))
+
+-- | Transposing a matrix (x_ij -> x_ji).
+type family Transpose (vs::[[k]]) :: [[k]] where
+  Transpose '[v] = Column v
+  Transpose (v ': vs) = ConsCol v (Transpose vs)

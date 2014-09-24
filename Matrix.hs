@@ -112,10 +112,6 @@ mSing' = rowMatrix . vSing
 -- Row wise
 -- --------
 
-type Row (ds::[k]) = '[ds]  -- For symmetry.
-type ConsRow v (vs::[k]) = v ': vs  -- For symmetry.
-type AppendRows vs1 vs2 = Append vs1 vs2
-
 -- | Construct a matrix with a single row from a vector.
   --
   -- >>> rowMatrix v
@@ -162,11 +158,6 @@ snocRow m v = appendRows m (rowMatrix v)
 -- Column wise
 -- -----------
 
--- TODO generic?
-type family Column ds where
-  Column (d ': '[]) = '[d] ': '[]
-  Column (d ': ds)  = '[d] ': Column ds
-
 -- | Create a matrix with a single column matrix from a vector.
   --
   -- >>> colMatrix (vSing x) == rowMatrix (vSing x)
@@ -177,12 +168,6 @@ type family Column ds where
   --  < 32.3 m >>
 colMatrix :: Vec ds a -> Mat (Column ds) a
 colMatrix (ListVec xs) = ListMat (fmap return xs)
-
-
--- TODO generic?
-type family ConsCol ds vs where
-  ConsCol '[d] '[v] = '[d ': v]
-  ConsCol (d ': ds) (v ': vs) = (d ': v) ': ConsCol ds vs
 
 
 -- | Prepend a column to a matrix.
@@ -197,8 +182,6 @@ type family ConsCol ds vs where
 consCol :: Vec ds a -> Mat vs a -> Mat (ConsCol ds vs) a
 consCol (ListVec xs) (ListMat vs) = ListMat (zipWith (:) xs vs)
 
-
-type AppendCols vs1 vs2 = Transpose (Append (Transpose vs1) (Transpose vs2))
 
 -- | Append the colums of the second matrix to the first.
   --
@@ -234,9 +217,6 @@ snocCol m v = appendCols m (colMatrix v)
 -- Row wise
 -- --------
 
-type HeadRow  (vs::[[Dimension]]) = Head vs
-type TailRows (vs::[[Dimension]]) = Tail vs
-
 -- | Return the first row of a matrix as a vector.
   --
   -- >>> headRow (mSing x) == vSing x
@@ -256,9 +236,6 @@ tailRows (ListMat vs) = ListMat (tail vs)
 
 -- Column wise
 -- -----------
-
-type HeadCol  vs = HeadRow  (Transpose vs)
-type TailCols vs = Transpose (TailRows (Transpose vs))
 
 -- | Return the first column of a matrix as a vector.
   --
@@ -312,11 +289,6 @@ instance (MMapOutC f (v2 ': vs) a, VMapOutC f v1 a, MMapOut f (v2 ': vs) a ~ VMa
 
 -- Transpose
 -- =========
-
--- TODO generic?
-type family Transpose (vs::[[k]]) :: [[k]] where
-  Transpose '[v] = Column v
-  Transpose (v ': vs) = ConsCol v (Transpose vs)
 
 -- | Transpose a matrix.
   --
