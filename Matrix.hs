@@ -300,8 +300,8 @@ instance ( VMapC f v1 a, MMapC f (v2 ': vs) a
 -- | Mapping a function from a vector to a quantity over each row of
   -- a matrix.
 type family MapRowQ f (vs::[[Dimension]]) :: [Dimension] where
-  MapRowQ f '[v] = '[VApplyQ f v]
-  MapRowQ f (v1 ': v2 ': vs) = VApplyQ f v1 ': MapRowQ f (v2 ': vs)
+  MapRowQ f '[v] = '[VUnaryQ f v]
+  MapRowQ f (v1 ': v2 ': vs) = VUnaryQ f v1 ': MapRowQ f (v2 ': vs)
 
 class MapRowQC f vs a where
   -- | Map a function from a vector to a quantity over each row of
@@ -311,12 +311,12 @@ class MapRowQC f vs a where
     -- True
   mapRowQ :: f -> Mat vs a -> Vec (MapRowQ f vs) a
 
-instance (Fractional a, VApplyQC f v a) => MapRowQC f '[v] a where
-  mapRowQ f m = vSing (vApplyQ f (headRow m))
+instance (Fractional a, VUnaryQC f v a) => MapRowQC f '[v] a where
+  mapRowQ f m = vSing (vUnaryQ f (headRow m))
 
-instance (Fractional a, VApplyQC f v1 a, MapRowQC f (v2 ': vs) a)
+instance (Fractional a, VUnaryQC f v1 a, MapRowQC f (v2 ': vs) a)
   => MapRowQC f (v1 ': v2 ': vs) a where
-  mapRowQ f m = vApplyQ f (headRow m) <: mapRowQ f (tailRows m)
+  mapRowQ f m = vUnaryQ f (headRow m) <: mapRowQ f (tailRows m)
 
 
 -- | Map a function from a vector to a quantity over each column of
@@ -335,8 +335,8 @@ mapColQ f = mapRowQ f . transpose
 -- | Mapping a function from a vector to a vector over each row of
   -- a matrix.
 type family MapRowV f (vs::[[Dimension]]) :: [[Dimension]] where
-  MapRowV f '[v] = '[VApplyV f v]
-  MapRowV f (v1 ': v2 ': vs) = VApplyV f v1 ': MapRowV f (v2 ': vs)
+  MapRowV f '[v] = '[VUnaryV f v]
+  MapRowV f (v1 ': v2 ': vs) = VUnaryV f v1 ': MapRowV f (v2 ': vs)
 
 class MapRowVC f vs a where
   -- | Map a function from a vector to a vector over each row of
@@ -346,13 +346,13 @@ class MapRowVC f vs a where
     -- True
   mapRowV :: f -> Mat vs a -> Mat (MapRowV f vs) a
 
-instance VApplyVC f v a => MapRowVC f '[v] a where
-  mapRowV f m = rowMatrix (vApplyV f (headRow m))
+instance VUnaryVC f v a => MapRowVC f '[v] a where
+  mapRowV f m = rowMatrix (vUnaryV f (headRow m))
 
-instance ( VApplyVC f v1 a, MapRowVC f (v2 ': vs) a
-  , Cols (MapRowV f (v2 ': vs)) ~ Elements (VApplyV f v1)
+instance ( VUnaryVC f v1 a, MapRowVC f (v2 ': vs) a
+  , Cols (MapRowV f (v2 ': vs)) ~ Elements (VUnaryV f v1)
   ) => MapRowVC f (v1 ': v2 ': vs) a where
-  mapRowV f m = vApplyV f (headRow m) |: mapRowV f (tailRows m)
+  mapRowV f m = vUnaryV f (headRow m) |: mapRowV f (tailRows m)
 
 
 -- | Map a function from a vector to a vector over each column of
@@ -550,12 +550,12 @@ matVec (ListMat vs) (ListVec v) = ListVec (map (P.sum . zipWith (P.*) v) vs)
 
 -- | Dot product.
   --
-  -- >>> vApplyQ (Dot v) vd2 == dotProduct v vd2
+  -- >>> vUnaryQ (Dot v) vd2 == dotProduct v vd2
   -- True
 data Dot ds a = Dot (Vec ds a)
-instance Num a => VApplyQC (Dot ds1 a) ds2 a where
-  type VApplyQ (Dot ds1 a) ds2 = DotProduct ds1 ds2
-  vApplyQ (Dot v1) = dotProduct v1
+instance Num a => VUnaryQC (Dot ds1 a) ds2 a where
+  type VUnaryQ (Dot ds1 a) ds2 = DotProduct ds1 ds2
+  vUnaryQ (Dot v1) = dotProduct v1
 
 -- | Principled implementation of 'matVec'.
   --

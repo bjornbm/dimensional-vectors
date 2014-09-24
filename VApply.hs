@@ -23,46 +23,46 @@ data Sum = Sum
 
 
 -- Vector to quantity.
-class VApplyQC f ds a where
-  type VApplyQ f ds :: Dimension
+class VUnaryQC f ds a where
+  type VUnaryQ f ds :: Dimension
   -- | Apply a function from a vector to a quantity.
     --
-    -- >>> vApplyVQ Sum vh1 == vSum vh1
+    -- >>> vUnaryVQ Sum vh1 == vSum vh1
     -- True
-  vApplyQ :: f -> Vec ds a -> Quantity (VApplyQ f ds) a
+  vUnaryQ :: f -> Vec ds a -> Quantity (VUnaryQ f ds) a
 
 -- Example instance for Sum.
-instance Num a => VApplyQC Sum ds a where
-  type VApplyQ Sum ds = Homo ds
-  vApplyQ Sum = vSum
+instance Num a => VUnaryQC Sum ds a where
+  type VUnaryQ Sum ds = Homo ds
+  vUnaryQ Sum = vSum
 
 -- Instance for functions.
-instance VApplyQC (Vec ds a -> Quantity d a) ds a where
-  type VApplyQ (Vec ds a -> Quantity d a) ds = d
-  vApplyQ f = f
+instance VUnaryQC (Vec ds a -> Quantity d a) ds a where
+  type VUnaryQ (Vec ds a -> Quantity d a) ds = d
+  vUnaryQ f = f
 
 
 
 
 
 -- Vector to vector.
-class VApplyVC f ds a where
-  type VApplyV f ds :: [Dimension]
+class VUnaryVC f ds a where
+  type VUnaryV f ds :: [Dimension]
   -- | Apply a function from a vector to a vector.
     --
-    -- >>> vApplyV Id v == v
+    -- >>> vUnaryV Id v == v
     -- True
-  vApplyV :: f -> Vec ds a -> Vec (VApplyV f ds) a
+  vUnaryV :: f -> Vec ds a -> Vec (VUnaryV f ds) a
 
 -- Example instance for Id.
-instance Num a => VApplyVC Id ds a where
-  type VApplyV Id ds = ds
-  vApplyV Id = id
+instance Num a => VUnaryVC Id ds a where
+  type VUnaryV Id ds = ds
+  vUnaryV Id = id
 
 -- Instance for functions.
-instance VApplyVC (Vec ds1 a -> Vec ds2 a) ds1 a where
-  type VApplyV (Vec ds1 a -> Vec ds2 a) ds1 = ds2
-  vApplyV f = f
+instance VUnaryVC (Vec ds1 a -> Vec ds2 a) ds1 a where
+  type VUnaryV (Vec ds1 a -> Vec ds2 a) ds1 = ds2
+  vUnaryV f = f
 
 
 -- ==============================
