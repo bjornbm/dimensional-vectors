@@ -119,6 +119,8 @@ type Rot ds = Snoc (Tail ds) (Head ds)
 --   ]
 --
 
+-- Working with rows
+-- -----------------
 
 -- | Conversion from a list to a single row matrix.
 type Row (ds::[k]) = '[ds]  -- For symmetry.
@@ -135,6 +137,9 @@ type HeadRow  (vs::[[k]]) = Head vs
 -- | Dropping the top row of a matrix.
 type TailRows (vs::[[k]]) = Tail vs
 
+
+-- Working with columns
+-- --------------------
 
 -- | Conversion from a list to a single column matrix.
 type family Column ds where
@@ -154,6 +159,10 @@ type HeadCol  vs = HeadRow  (Transpose vs)
 
 -- | Dropping the leftmost column of a matrix.
 type TailCols vs = Transpose (TailRows (Transpose vs))
+
+
+-- Miscellaneous
+-- -------------
 
 -- | Transposing a matrix (x_ij -> x_ji).
 type family Transpose (vs::[[k]]) :: [[k]] where
