@@ -194,11 +194,11 @@ appendCols (ListMat vs1) (ListMat vs2) = ListMat (zipWith (++) vs1 vs2)
   -- >>> appendCols m23 m23 == appendCols' m23 m23
   -- True
 appendCols'
-  :: (TransposeC (Append (Transpose vs1) (Transpose vs2)),
-      TransposeC vs2, TransposeC vs1,
+  :: (TransposeC' (Append (Transpose vs1) (Transpose vs2)),
+      TransposeC' vs2, TransposeC' vs1,
       Cols (Transpose vs1) ~ Cols (Transpose vs2)  -- Rows vs1 ~ Rows vs2
      ) => Mat vs1 a -> Mat vs2 a -> Mat (AppendCols vs1 vs2) a
-appendCols' m1 m2 = transpose (appendRows (transpose m1) (transpose m2))
+appendCols' m1 m2 = transpose' (appendRows (transpose' m1) (transpose' m2))
 
 
 -- | Add a column to the right of a matrix.
@@ -254,8 +254,8 @@ headCol (ListMat vs) = ListVec (map head vs)
   --
   -- >>> headCol m32 == headCol' m32
   -- True
-headCol' :: TransposeC vs => Mat vs a -> Vec (HeadCol vs) a
-headCol' = headRow . transpose
+headCol' :: TransposeC' vs => Mat vs a -> Vec (HeadCol vs) a
+headCol' = headRow . transpose'
 
 
 -- | Drop the first column of a matrix.
@@ -269,9 +269,9 @@ tailCols (ListMat vs) = ListMat (map tail vs)
   --
   -- >>> tailCols m32 == tailCols' m32
   -- True
-tailCols' :: (TransposeC vs, TransposeC (Tail (Transpose vs)))
+tailCols' :: (TransposeC' vs, TransposeC' (Tail (Transpose vs)))
           => Mat vs a -> Mat (TailCols vs) a
-tailCols' = transpose . tailRows . transpose
+tailCols' = transpose' . tailRows . transpose'
 
 
 -- Higher order functions
@@ -294,30 +294,42 @@ instance (MMapOutC f (v2 ': vs) a, VMapOutC f v1 a, MMapOut f (v2 ': vs) a ~ VMa
 -- Transpose
 -- =========
 
--- TODO Could have put this type in TransposeC, but since it is
--- stand-alone perhaps I could move it to ListKind instead. That
--- might, in fact, be a good approach for all HOFs!
+-- TODO generic?
 type family Transpose (vs::[[k]]) :: [[k]] where
   Transpose '[v] = Column v
   Transpose (v ': vs) = ConsCol v (Transpose vs)
 
-class TransposeC vs where
-  -- | Transpose a matrix.
-    --
-    -- >>> transpose (transpose m23) == m23
-    -- True
-    -- >>> transpose (colMatrix v) == rowMatrix v
-    -- True
-    -- >>> transpose (rowMatrix v) == colMatrix v
-    -- True
-    -- >>> transpose (v |:. vc4) == consCol v (colMatrix vc4)
-    -- True
-  transpose :: Mat vs a -> Mat (Transpose vs) a
+-- | Transpose a matrix.
+  --
+  -- >>> transpose (transpose m23) == m23
+  -- True
+  -- >>> transpose (colMatrix v) == rowMatrix v
+  -- True
+  -- >>> transpose (rowMatrix v) == colMatrix v
+  -- True
+  -- >>> transpose (v |:. vc4) == consCol v (colMatrix vc4)
+  -- True
+transpose :: Mat vs a -> Mat (Transpose vs) a
+transpose (ListMat vs) = ListMat (transposeLists vs)
+  where
+    transposeLists :: [[a]] -> [[a]]
+    transposeLists [v] = fmap return v
+    transposeLists (v:vs) = zipWith (:) v (transposeLists vs)
 
-instance TransposeC '[v] where
-  transpose = colMatrix . headRow  -- Principled!
-instance TransposeC (v2 ': vs) => TransposeC (v1 ': v2 ': vs) where
-  transpose m = consCol (headRow m) (transpose (tailRows m))  -- Principled!
+-- | Principled implementation of 'transpose'.
+  --
+  -- >>> transpose m23 == transpose' m23
+  -- True
+  -- >>> transpose (colMatrix v) == transpose' (colMatrix v)
+  -- True
+  -- >>> transpose (rowMatrix v) == transpose' (rowMatrix v)
+  -- True
+class TransposeC' vs where
+  transpose' :: Mat vs a -> Mat (Transpose vs) a
+instance TransposeC' '[v] where
+  transpose' = colMatrix . headRow  -- Principled!
+instance TransposeC' (v2 ': vs) => TransposeC' (v1 ': v2 ': vs) where
+  transpose' m = consCol (headRow m) (transpose (tailRows m))  -- Principled!
 
 
 -- Show
