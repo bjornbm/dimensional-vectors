@@ -34,7 +34,10 @@ import qualified Prelude
 -- >>> let vc3 = 3.0 *~ meter <: (2 *~ one) <:. (1 *~ one)
 -- >>> let vc4 = 1 *~ (meter / second) <: 2 *~ hertz <:. 3 *~ hertz
 -- >>> let f = (*) :: Length Double -> Mass Double -> FirstMassMoment Double
--- >>> let m = vc3 |:. v
+-- >>> let m22 = (x <:. y) |:. (z <:. z)
+-- >>> let m23 = vc3 |:. v
+-- >>> let m32 = transpose m23
+-- >>> let m33 = vc4 |: vc3 |:. v
 
 
 -- Operators
@@ -87,12 +90,38 @@ type SquareC vs = (RectangularC vs, Rows vs ~ Cols vs)
 -- Matrix construction
 -- ===================
 
--- | Construct matrix with a single row from a vector.
+-- | Construct the matrix with a single element.
+  --
+  -- >>> mSing x == rowMatrix (vSing x)
+  -- True
+  -- >>> mSing x == colMatrix (vSing x)
+  -- True
+  -- >>> mSing x
+  -- << 2.0 m >>
+mSing :: Fractional a => Quantity d a -> Mat '[ '[d] ] a
+mSing x = ListMat [[x /~ siUnit]]
+
+-- | Principled implementation of 'mSing'.
+  --
+  -- >>> mSing x == mSing' x
+  -- True
+mSing' :: Fractional a => Quantity d a -> Mat '[ '[d] ] a
+mSing' = rowMatrix . vSing
+
+
+-- Row wise
+-- --------
+
+type Row (ds::[k]) = '[ds]  -- For symmetry.
+type ConsRow v (vs::[k]) = v ': vs  -- For symmetry.
+type AppendRows vs1 vs2 = Append vs1 vs2
+
+-- | Construct a matrix with a single row from a vector.
 rowMatrix :: Vec ds a -> Mat (Row ds) a
 rowMatrix (ListVec xs) = ListMat [xs]
 
 consRow :: (VLength ds ~ Cols vs)
-        => Vec ds a -> Mat vs a -> Mat (ds ': vs) a
+        => Vec ds a -> Mat vs a -> Mat (ConsRow ds vs) a
 consRow (ListVec xs) (ListMat vs) = ListMat (xs:vs)
 
 (|:) :: (VLength ds ~ Cols vs)
@@ -103,24 +132,146 @@ consRow (ListVec xs) (ListMat vs) = ListMat (xs:vs)
 v1 |:. v2 = v1 |: rowMatrix v2
 
 appendRows :: (Cols vs1 ~ Cols vs2)
-           => Mat vs1 a -> Mat vs2 a -> Mat (Append vs1 vs2) a
+           => Mat vs1 a -> Mat vs2 a -> Mat (AppendRows vs1 vs2) a
 appendRows (ListMat vs1) (ListMat vs2) = ListMat (vs1 ++ vs2)
 
 snocRow :: (Cols vs ~ VLength ds) => Mat vs a -> Vec ds a -> Mat (Snoc vs ds) a
 snocRow m v = appendRows m (rowMatrix v)
 
 
+-- Column wise
+-- -----------
+
+-- TODO generic?
+type family Column ds where
+  Column (d ': '[]) = '[d] ': '[]
+  Column (d ': ds)  = '[d] ': Column ds
+
+-- | Create a single column matrix from the vector.
+  --
+  -- >>> colMatrix (vSing x) == rowMatrix (vSing x)
+  -- True
+  -- >>> colMatrix (2 *~ gram <: _3 <:. 32.3 *~ meter)
+  -- << 2.0e-3 kg >,
+  --  < 3.0 >,
+  --  < 32.3 m >>
+colMatrix :: Vec ds a -> Mat (Column ds) a
+colMatrix (ListVec xs) = ListMat (fmap return xs)
+
+
+-- TODO generic?
+type family ConsCol ds vs where
+  ConsCol '[d] '[v] = '[d ': v]
+  ConsCol (d ': ds) (v ': vs) = (d ': v) ': ConsCol ds vs
+
+
+-- | Prepend a column to a matrix.
+  --
+  -- >>> consCol (vSing x) (colMatrix (vSing y)) == rowMatrix (x <:. y)
+  -- True
+  -- >>> consCol (x <:. y) (colMatrix (z <:. x)) == (x <:. z) |:. (y <:. x)
+  -- True
+  -- >>> consCol (x <:. y) m23
+  -- << 2.0 m, 3.0 m, 2.0, 1.0 >,
+  --  < 3.0 kg, 2.0 m, 3.0 kg, 1.0 >>
+consCol :: Vec ds a -> Mat vs a -> Mat (ConsCol ds vs) a
+consCol (ListVec xs) (ListMat vs) = ListMat (zipWith (:) xs vs)
+
+
+type AppendCols vs1 vs2 = Transpose (Append (Transpose vs1) (Transpose vs2))
+
+-- | Append the second matrix to the first in a column-wise fashion.
+  --
+  -- >>> appendCols (mSing x) (mSing y) == rowMatrix (x <:. y)
+  -- True
+  -- >>> appendCols (colMatrix (x <:. z)) (colMatrix (y <:. x)) == (x <:. y) |:. (z <:. x)
+  -- True
+appendCols :: Mat vs1 a -> Mat vs2 a -> Mat (AppendCols vs1 vs2) a
+appendCols (ListMat vs1) (ListMat vs2) = ListMat (zipWith (++) vs1 vs2)
+
+-- | Principled implementation of 'appendCols'.
+  --
+  -- >>> appendCols m23 m23 == appendCols' m23 m23
+  -- True
+appendCols'
+  :: (TransposeC (Append (Transpose vs1) (Transpose vs2)),
+      TransposeC vs2, TransposeC vs1,
+      Cols (Transpose vs1) ~ Cols (Transpose vs2)  -- Rows vs1 ~ Rows vs2
+     ) => Mat vs1 a -> Mat vs2 a -> Mat (AppendCols vs1 vs2) a
+appendCols' m1 m2 = transpose (appendRows (transpose m1) (transpose m2))
+
+
+-- | Add a column to the right of a matrix.
+  --
+  -- >>> snocCol (transpose m23) vc3 == transpose (snocRow m23 vc3)
+  -- True
+snocCol :: Mat vs a -> Vec v a -> Mat (AppendCols vs (Column v)) a
+snocCol m v = appendCols m (colMatrix v)
+
+
 -- Deconstruction
 -- ==============
+
+-- Row wise
+-- --------
 
 type HeadRow  (vs::[[Dimension]]) = Head vs
 type TailRows (vs::[[Dimension]]) = Tail vs
 
+-- | Return the first row of a matrix as a vector.
+  --
+  -- >>> headRow (mSing x) == vSing x
+  -- True
+  -- >>> headRow m23 == vc3
+  -- True
 headRow :: Mat vs a -> Vec (HeadRow vs) a
 headRow (ListMat vs) = ListVec (head vs)
 
+-- | Drop the first row of a matrix.
+  --
+  -- >>> tailRows m23 == rowMatrix v
+  -- True
 tailRows :: Mat vs a -> Mat (TailRows vs) a
 tailRows (ListMat vs) = ListMat (tail vs)
+
+
+-- Column wise
+-- -----------
+
+type HeadCol  vs = HeadRow  (Transpose vs)
+type TailCols vs = Transpose (TailRows (Transpose vs))
+
+-- | Return the first column of a matrix as a vector.
+  --
+  -- >>> headCol (mSing x) == vSing x
+  -- True
+  -- >>> headCol m32 == vc3
+  -- True
+headCol :: Mat vs a -> Vec (HeadCol vs) a
+headCol (ListMat vs) = ListVec (map head vs)
+
+-- | Principled implementation of 'headCol'.
+  --
+  -- >>> headCol m32 == headCol' m32
+  -- True
+headCol' :: TransposeC vs => Mat vs a -> Vec (HeadCol vs) a
+headCol' = headRow . transpose
+
+
+-- | Drop the first column of a matrix.
+  --
+  -- >>> tailCols m32 == colMatrix v
+  -- True
+tailCols :: Mat vs a -> Mat (TailCols vs) a
+tailCols (ListMat vs) = ListMat (map tail vs)
+
+-- | Principled implementation of 'tailCols'.
+  --
+  -- >>> tailCols m32 == tailCols' m32
+  -- True
+tailCols' :: (TransposeC vs, TransposeC (Tail (Transpose vs)))
+          => Mat vs a -> Mat (TailCols vs) a
+tailCols' = transpose . tailRows . transpose
 
 
 -- Higher order functions
@@ -140,44 +291,8 @@ instance (MMapOutC f (v2 ': vs) a, VMapOutC f v1 a, MMapOut f (v2 ': vs) a ~ VMa
   mMapOut f m = vMapOut f (headRow m) : mMapOut f (tailRows m)
 
 
--- Colums and transpose
--- ====================
-
--- TODO generic?
-type family Column ds where
-  Column (d ': '[]) = '[d] ': '[]
-  Column (d ': ds)  = '[d] ': Column ds
-
-type Row (ds::[k]) = '[ds]  -- For symmetry.
-
--- | Create a single column matrix from the vector.
-  --
-  -- >>> colMatrix (vSing x) == rowMatrix (vSing x)
-  -- True
-  -- >>> colMatrix (2 *~ gram <: _3 <:. 32.3 *~ meter)
-  -- << 2.0e-3 kg >,
-  --  < 3.0 >,
-  --  < 32.3 m >>
-colMatrix :: Vec ds a -> Mat (Column ds) a
-colMatrix (ListVec xs) = ListMat (fmap return xs)
-
-
--- TODO generic?
-type family ConsCol ds vs where
-  ConsCol '[d] '[v] = '[d ': v]
-  ConsCol (d ': ds) (v ': vs) = (d ': v) ': ConsCol ds vs
-
--- | Prepend a column to a matrix.
-  --
-  -- >>> consCol (vSing x) (colMatrix (vSing y)) == rowMatrix (x <:. y)
-  -- True
-  -- >>> consCol (x <:. y) (colMatrix (z <:. x)) == (x <:. z) |:. (y <:. x)
-  -- True
-  -- >>> consCol (x <:. y) m
-  -- << 2.0 m, 3.0 m, 2.0, 1.0 >,
-  --  < 3.0 kg, 2.0 m, 3.0 kg, 1.0 >>
-consCol :: Vec ds a -> Mat vs a -> Mat (ConsCol ds vs) a
-consCol (ListVec xs) (ListMat vs) = ListMat (zipWith (:) xs vs)
+-- Transpose
+-- =========
 
 -- TODO Could have put this type in TransposeC, but since it is
 -- stand-alone perhaps I could move it to ListKind instead. That
@@ -189,7 +304,7 @@ type family Transpose (vs::[[k]]) :: [[k]] where
 class TransposeC vs where
   -- | Transpose a matrix.
     --
-    -- >>> transpose (transpose m) == m
+    -- >>> transpose (transpose m23) == m23
     -- True
     -- >>> transpose (colMatrix v) == rowMatrix v
     -- True
@@ -210,10 +325,10 @@ instance TransposeC (v2 ': vs) => TransposeC (v1 ': v2 ': vs) where
 
 -- | We provide a custom @Show@ instance for vectors.
   --
-  -- >>> m
+  -- >>> m23
   -- << 3.0 m, 2.0, 1.0 >,
   --  < 2.0 m, 3.0 kg, 1.0 >>
-  -- >>> show m
+  -- >>> show m23
   -- "<< 3.0 m, 2.0, 1.0 >,\n < 2.0 m, 3.0 kg, 1.0 >>"
   -- >>> show (rowMatrix (2 *~ gram <: _3 <:. 32.3 *~ meter))
   -- "<< 2.0e-3 kg, 3.0, 32.3 m >>"
