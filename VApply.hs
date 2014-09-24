@@ -15,23 +15,37 @@ import ListKind
 import Vector
 import qualified Prelude as P
 
+-- $setup
+-- >>> let x = 2 *~ meter :: Length Double
+-- >>> let y = 3 *~ kilo gram :: Mass Double
+-- >>> let z = _1
+-- >>> let v = x <: y <:. z
+-- >>> let vh1 = y <: y <:. y
+-- >>> let vh2 = x <: 1 *~ meter <:. 4 *~ meter
+-- >>> let vd2 = y <: x <:. x*y
+-- >>> let vc3 = 3.0 *~ meter <: (2 *~ one) <:. (1 *~ one)
+-- >>> let vc4 = 1 *~ (meter / second) <: 2 *~ hertz <:. 3 *~ hertz
+-- >>> let f = (*) :: Length Double -> Mass Double -> FirstMassMoment Double
 
 
--- Example function
-data Sum = Sum
+-- Operations from vectors to quantities
+-- =====================================
 
+-- Unary operations
+-- ----------------
 
-
--- Vector to quantity.
 class VUnaryQC f ds a where
   type VUnaryQ f ds :: Dimension
   -- | Apply a function from a vector to a quantity.
-    --
-    -- >>> vUnaryVQ Sum vh1 == vSum vh1
-    -- True
   vUnaryQ :: f -> Vec ds a -> Quantity (VUnaryQ f ds) a
 
--- Example instance for Sum.
+
+-- | Sum of all elements.
+  --
+  -- >>> vUnaryQ Sum vh1 == vSum vh1
+  -- True
+data Sum = Sum
+
 instance Num a => VUnaryQC Sum ds a where
   type VUnaryQ Sum ds = Homo ds
   vUnaryQ Sum = vSum
@@ -42,8 +56,57 @@ instance VUnaryQC (Vec ds a -> Quantity d a) ds a where
   vUnaryQ f = f
 
 
+-- Binary operations
+-- -----------------
+
+class VBinaryQC f v1 v2 a where
+  type VBinaryQ f v1 v2 :: Dimension
+  -- | Apply a binary operation to two quantities.
+  vBinaryQ :: f -> Vec v1 a -> Vec v2 a -> Quantity (VBinaryQ f v1 v2) a
+
+-- | Dot product.
+  --
+  -- >>> vBinaryQ Dot v vd2 == dotProduct v vd2
+  -- True
+data Dot = Dot
+
+instance Num a => VBinaryQC Dot v1 v2 a where
+  type VBinaryQ Dot v1 v2 = DotProduct v1 v2
+  vBinaryQ Dot x y = dotProduct x y
 
 
+-- Binary to unary conversion
+-- --------------------------
+
+-- | Type for making a binary operation unary, with the left argument
+  -- pre-supplied.
+  --
+  -- >>> vUnaryQ (VUnaryL v Dot) vd2 == vBinaryQ Dot v vd2
+  -- True
+data VUnaryL ds a f = VUnaryL (Vec ds a) f
+
+instance VBinaryQC f ds1 ds2 a => VUnaryQC (VUnaryL ds1 a f) ds2 a where
+  type VUnaryQ (VUnaryL ds1 a f) ds2 = VBinaryQ f ds1 ds2
+  vUnaryQ (VUnaryL v1 f) v2 = vBinaryQ f v1 v2
+
+
+-- | Type for making a binary operation unary, with the right argument
+  -- pre-supplied.
+  --
+  -- >>> vUnaryQ (VUnaryR Dot v) vd2 == vBinaryQ Dot vd2 v
+  -- True
+data VUnaryR f ds a = VUnaryR f (Vec ds a)
+
+instance VBinaryQC f ds1 ds2 a => VUnaryQC (VUnaryR f ds2 a) ds1 a where
+  type VUnaryQ (VUnaryR f ds2 a) ds1 = VBinaryQ f ds1 ds2
+  vUnaryQ (VUnaryR f v2) v1 = vBinaryQ f v1 v2
+
+
+-- Operations from vectors to vectors
+-- ==================================
+
+-- Unary operations
+-- ----------------
 
 -- Vector to vector.
 class VUnaryVC f ds a where

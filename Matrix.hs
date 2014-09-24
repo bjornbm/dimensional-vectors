@@ -548,22 +548,14 @@ type family MatVec vs v where
 matVec :: Num a => Mat vs a -> Vec v a -> Vec (MatVec vs v) a
 matVec (ListMat vs) (ListVec v) = ListVec (map (P.sum . zipWith (P.*) v) vs)
 
--- | Dot product.
-  --
-  -- >>> vUnaryQ (Dot v) vd2 == dotProduct v vd2
-  -- True
-data Dot ds a = Dot (Vec ds a)
-instance Num a => VUnaryQC (Dot ds1 a) ds2 a where
-  type VUnaryQ (Dot ds1 a) ds2 = DotProduct ds1 ds2
-  vUnaryQ (Dot v1) = dotProduct v1
-
 -- | Principled implementation of 'matVec'.
   --
   -- >>> matVec' (rowMatrix v) vd2 == matVec (rowMatrix v) vd2
   -- True
-matVec' :: MapRowQC (Dot ds a1) vs a
-        => Mat vs a -> Vec ds a1 -> Vec (MapRowQ (Dot ds a1) vs) a
-matVec' m v = mapRowQ (Dot v) m
+matVec' :: MapRowQC (VUnaryR Dot ds a) vs a
+        => Mat vs a -> Vec ds a -> Vec (MapRowQ (VUnaryR Dot ds a) vs) a
+matVec' m v = mapRowQ (VUnaryR Dot v) m
+type MatVec' vs v a = MapRowQ (VUnaryR Dot v a) vs
 
 
 type VecMat v vs = MatVec (Transpose vs) v
