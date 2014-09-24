@@ -624,6 +624,8 @@ type DotProduct ds1 ds2 = VHomo (VZipWith Mul ds1 ds2)
   --
   -- >>> dotProduct v vd2 == vSum (elemMul v vd2)
   -- True
+  -- >>> dotProduct v vd2 == dotProduct vd2 v
+  -- True
   -- >>> dotProduct v vd2
   -- 18.0 m kg
 dotProduct, (>.<) :: Num a => Vec ds1 a -> Vec ds2 a -> Quantity (DotProduct ds1 ds2) a

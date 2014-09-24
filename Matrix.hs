@@ -293,33 +293,18 @@ instance ( VMapC f v1 a, MMapC f (v2 ': vs) a
   mMap f m = vMap f (headRow m) |: mMap f (tailRows m)
 
 
--- Mapping to each row
--- -------------------
+-- Mapping each row to a quantity
+-- ------------------------------
 
--- Vector to anything.
-class ApplyVC f ds a where
-  type ApplyV f ds a :: k
-  -- |
-    -- >>> applyV Id v == v
-    -- True
-    -- >>> applyV Sum vh1 == vSum vh1
-    -- True
-  applyV :: f -> Vec ds a -> ApplyV f ds a
-
-instance ApplyVC Id ds a where
-  type ApplyV Id ds a = Vec ds a
-  applyV Id = id
-
+-- Example function
 data Sum = Sum
 
-instance Num a => ApplyVC Sum ds a where
-  type ApplyV Sum ds a = Quantity (Homo ds) a
-  applyV Sum = vSum
 
 -- Vector to quantity.
 class ApplyVQC f ds a where
   type ApplyVQ f ds :: Dimension
-  -- |
+  -- | Apply a function from a vector to a quantity.
+    --
     -- >>> applyVQ Sum vh1 == vSum vh1
     -- True
   applyVQ :: f -> Vec ds a -> Quantity (ApplyVQ f ds) a
@@ -334,10 +319,47 @@ instance ApplyVQC (Vec ds a -> Quantity d a) ds a where
   type ApplyVQ (Vec ds a -> Quantity d a) ds = d
   applyVQ f = f
 
+
+-- | Mapping a function from a vector to a quantity over each row of
+  -- a matrix.
+type family MapRowQ f (vs::[[Dimension]]) :: [Dimension] where
+  MapRowQ f '[v] = '[ApplyVQ f v]
+  MapRowQ f (v1 ': v2 ': vs) = ApplyVQ f v1 ': MapRowQ f (v2 ': vs)
+
+class MapRowQC f vs a where
+  -- | Map a function from a vector to a quantity over each row of
+    -- a matrix.
+    --
+    -- >>> mapRowQ Sum (vh1 |:. vh2) == vSum vh1 <:. vSum vh2
+    -- True
+  mapRowQ :: f -> Mat vs a -> Vec (MapRowQ f vs) a
+
+instance (Fractional a, ApplyVQC f v a) => MapRowQC f '[v] a where
+  mapRowQ f m = vSing (applyVQ f (headRow m))
+
+instance (Fractional a, ApplyVQC f v1 a, MapRowQC f (v2 ': vs) a)
+  => MapRowQC f (v1 ': v2 ': vs) a where
+  mapRowQ f m = applyVQ f (headRow m) <: mapRowQ f (tailRows m)
+
+
+-- | Map a function from a vector to a quantity over each column of
+  -- a matrix.
+  --
+  -- >>> mapColQ Sum (consCol vh1 (colMatrix vh2)) == vSum vh1 <:. vSum vh2
+  -- True
+mapColQ :: MapRowQC f (Transpose vs) a =>
+     f -> Mat vs a -> Vec (MapRowQ f (Transpose vs)) a
+mapColQ f = mapRowQ f . transpose
+
+
+-- Mapping each row to a vector
+-- ----------------------------
+
 -- Vector to vector.
 class ApplyVVC f ds a where
   type ApplyVV f ds :: [Dimension]
-  -- |
+  -- | Apply a function from a vector to a vector.
+    --
     -- >>> applyVV Id v == v
     -- True
   applyVV :: f -> Vec ds a -> Vec (ApplyVV f ds) a
@@ -353,49 +375,38 @@ instance ApplyVVC (Vec ds1 a -> Vec ds2 a) ds1 a where
   applyVV f = f
 
 
+
 -- | Mapping a function from a vector to a vector over each row of
   -- a matrix.
-type family MapVV f (vs::[[Dimension]]) :: [[Dimension]] where
-  MapVV f '[v] = '[ApplyVV f v]
-  MapVV f (v1 ': v2 ': vs) = ApplyVV f v1 ': MapVV f (v2 ': vs)
+type family MapRowV f (vs::[[Dimension]]) :: [[Dimension]] where
+  MapRowV f '[v] = '[ApplyVV f v]
+  MapRowV f (v1 ': v2 ': vs) = ApplyVV f v1 ': MapRowV f (v2 ': vs)
 
-class MapVVC f vs a where
+class MapRowVC f vs a where
   -- | Map a function from a vector to a vector over each row of
     -- a matrix.
     --
-    -- >>> mapVV Id m23 == m23
+    -- >>> mapRowV Id m23 == m23
     -- True
-  mapVV :: f -> Mat vs a -> Mat (MapVV f vs) a
+  mapRowV :: f -> Mat vs a -> Mat (MapRowV f vs) a
 
-instance ApplyVVC f v a => MapVVC f '[v] a where
-  mapVV f m = rowMatrix (applyVV f (headRow m))
+instance ApplyVVC f v a => MapRowVC f '[v] a where
+  mapRowV f m = rowMatrix (applyVV f (headRow m))
 
-instance ( ApplyVVC f v1 a, MapVVC f (v2 ': vs) a
-  , Cols (MapVV f (v2 ': vs)) ~ Elements (ApplyVV f v1)
-  ) => MapVVC f (v1 ': v2 ': vs) a where
-  mapVV f m = applyVV f (headRow m) |: mapVV f (tailRows m)
+instance ( ApplyVVC f v1 a, MapRowVC f (v2 ': vs) a
+  , Cols (MapRowV f (v2 ': vs)) ~ Elements (ApplyVV f v1)
+  ) => MapRowVC f (v1 ': v2 ': vs) a where
+  mapRowV f m = applyVV f (headRow m) |: mapRowV f (tailRows m)
 
 
--- | Mapping a function from a vector to a quantity over each row of
+-- | Map a function from a vector to a vector over each column of
   -- a matrix.
-type family MapVQ f (vs::[[Dimension]]) :: [Dimension] where
-  MapVQ f '[v] = '[ApplyVQ f v]
-  MapVQ f (v1 ': v2 ': vs) = ApplyVQ f v1 ': MapVQ f (v2 ': vs)
-
-class MapVQC f vs a where
-  -- | Map a function from a vector to a quantity over each row of
-    -- a matrix.
-    --
-    -- >>> mapVQ Sum (vh1 |:. vh2) == vSum vh1 <:. vSum vh2
-    -- True
-  mapVQ :: f -> Mat vs a -> Vec (MapVQ f vs) a
-
-instance (Fractional a, ApplyVQC f v a) => MapVQC f '[v] a where
-  mapVQ f m = vSing (applyVQ f (headRow m))
-
-instance (Fractional a, ApplyVQC f v1 a, MapVQC f (v2 ': vs) a)
-  => MapVQC f (v1 ': v2 ': vs) a where
-  mapVQ f m = applyVQ f (headRow m) <: mapVQ f (tailRows m)
+  --
+  -- >>> mapColV Id m23 == m23
+  -- True
+mapColV :: MapRowVC f (Transpose vs) a =>
+     f -> Mat vs a -> Mat (Transpose (MapRowV f (Transpose vs))) a
+mapColV f = transpose . mapRowV f . transpose
 
 
 -- Zipping each element
@@ -521,7 +532,7 @@ mElemAdd (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.+)) vs1 vs2)
   -- True
 mElemAdd' :: (Num a, MZipWithC Add vs vs a, MZipWith Add vs vs ~ vs)
          => Mat vs a -> Mat vs a -> Mat vs a
-mElemAdd' m1 m2 = mZipWith Add m1 m2
+mElemAdd' = mZipWith Add
 
 -- | Elementwise subraction of matrices. The matrices must have the
   -- same size and element types.
@@ -537,7 +548,7 @@ mElemSub (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.-)) vs1 vs2)
   -- True
 mElemSub' :: (Num a, MZipWithC Sub vs vs a, MZipWith Sub vs vs ~ vs)
          => Mat vs a -> Mat vs a -> Mat vs a
-mElemSub' m1 m2 = mZipWith Sub m1 m2
+mElemSub' = mZipWith Sub
 
 
 -- Matrix/vector multiplication
@@ -547,11 +558,31 @@ type family MatVec vs v where
   MatVec '[v1] v2 = '[DotProduct v1 v2]
   MatVec (v1 ': vs) v2 = DotProduct v1 v2 ': MatVec vs v2
 
+-- |
 matVec :: Num a => Mat vs a -> Vec v a -> Vec (MatVec vs v) a
 matVec (ListMat vs) (ListVec v) = ListVec (map (P.sum . zipWith (P.*) v) vs)
 
+-- | Dot product.
+  --
+  -- >>> applyVQ (Dot v) vd2 == dotProduct v vd2
+  -- True
+data Dot ds a = Dot (Vec ds a)
+instance Num a => ApplyVQC (Dot ds1 a) ds2 a where
+  type ApplyVQ (Dot ds1 a) ds2 = DotProduct ds1 ds2
+  applyVQ (Dot v1) = dotProduct v1
+
+-- | Principled implementation of 'matVec'.
+  --
+  -- >>> matVec' (rowMatrix v) vd2 == matVec (rowMatrix v) vd2
+  -- True
+matVec' :: MapRowQC (Dot ds a1) vs a
+        => Mat vs a -> Vec ds a1 -> Vec (MapRowQ (Dot ds a1) vs) a
+matVec' m v = mapRowQ (Dot v) m
+
+
 type VecMat v vs = MatVec (Transpose vs) v
 
+-- |
 vecMat :: Num a => Vec v a -> Mat vs a -> Vec (VecMat v vs) a
 vecMat v m = matVec (transpose m) v
 
