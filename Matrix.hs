@@ -534,6 +534,7 @@ mElemAdd' :: (Num a, MZipWithC Add vs vs a, MZipWith Add vs vs ~ vs)
          => Mat vs a -> Mat vs a -> Mat vs a
 mElemAdd' = mZipWith Add
 
+
 -- | Elementwise subraction of matrices. The matrices must have the
   -- same size and element types.
   --
@@ -549,6 +550,35 @@ mElemSub (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.-)) vs1 vs2)
 mElemSub' :: (Num a, MZipWithC Sub vs vs a, MZipWith Sub vs vs ~ vs)
          => Mat vs a -> Mat vs a -> Mat vs a
 mElemSub' = mZipWith Sub
+
+
+-- | Elementwise multiplication of matrices. The matrices must have the
+  -- same size.
+mElemMul :: Num a => Mat vs1 a -> Mat vs2 a -> Mat (MZipWith Mul vs1 vs2) a
+mElemMul (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.*)) vs1 vs2)
+
+-- | Principled implementation of 'mElemMul'.
+  --
+  -- -- >>> mElemMul m23 m23 == mElemMul' m23 m23
+  -- True
+mElemMul' :: MZipWithC Mul vs1 vs2 a
+          => Mat vs1 a -> Mat vs2 a -> Mat (MZipWith Mul vs1 vs2) a
+mElemMul' = mZipWith Mul
+
+
+-- | Elementwise division of matrices. The matrices must have the
+  -- same size.
+mElemDiv :: Fractional a
+         => Mat vs1 a -> Mat vs2 a -> Mat (MZipWith Div vs1 vs2) a
+mElemDiv (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P./)) vs1 vs2)
+
+-- | Principled implementation of 'mElemDiv'.
+  --
+  -- -- >>> mElemDiv m23 m23 == mElemDiv' m23 m23
+  -- True
+mElemDiv' :: MZipWithC Div vs1 vs2 a
+          => Mat vs1 a -> Mat vs2 a -> Mat (MZipWith Div vs1 vs2) a
+mElemDiv' = mZipWith Div
 
 
 -- Matrix/vector multiplication
