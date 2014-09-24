@@ -72,6 +72,20 @@ type family Homo (ds::[k]) :: k where
   Homo (d ': d ': ds) = Homo (d ': ds)
 
 
+{-
+-- Higher order functions
+-- ======================
+
+type family LApply f d
+type instance LApply (a -> b) a = b
+
+type family LMap f (ds::[k]) :: [l] where
+  LMap f '[d] = '[LApply f d]
+  LMap f (d ': ds) = LApply f d ': LMap f ds
+  -}
+
+
+
 -- Miscellaneous
 -- =============
 

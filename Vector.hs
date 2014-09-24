@@ -524,8 +524,7 @@ scaleVec' x = vMap (UnaryR Mul x)  -- Rigorious implementation.
   => Vec ds a -> Quantity d a -> Vec (ScaleVec (DOne / d) ds a) a
 v >/ x = v >* (_1 / x)
 
--- | Scale a vector by a dimensionless quantity. This avoids the trivial
-  -- constraint @HMap (MulD, DOne) ds ds@ for this common case.
+-- | Scale a vector by a dimensionless quantity.
   --
   -- >>> scaleVec1 _2 (_4 <:. 3 *~ meter)
   -- < 8.0, 6.0 m >

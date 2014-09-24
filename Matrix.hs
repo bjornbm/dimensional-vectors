@@ -21,7 +21,7 @@ import Numeric.Units.Dimensional.DK.Prelude
 import Apply
 import ListKind
 import Vector
-import qualified Prelude
+import qualified Prelude as P
 
 -- $setup
 -- >>> let x = 2 *~ meter :: Length Double
@@ -270,8 +270,75 @@ tailCols' :: (TransposeC' vs, TransposeC' (Tail (Transpose vs)))
 tailCols' = transpose' . tailRows . transpose'
 
 
+
 -- Higher order functions
 -- ======================
+
+-- Mapping to each element
+-- -----------------------
+
+type family MMap f (vs::[[Dimension]]) :: [[Dimension]] where
+  MMap f '[v] = '[VMap f v]
+  MMap f (v1 ': v2 ': vs) = VMap f v1 ': MMap f (v2 ': vs)
+
+class MMapC f (vs::[[Dimension]]) a where
+  mMap :: f -> Mat vs a -> Mat (MMap f vs) a
+
+instance VMapC f v a => MMapC f '[v] a where
+  mMap f = rowMatrix . vMap f . headRow
+
+instance ( VMapC f v1 a, MMapC f (v2 ': vs) a
+         , Cols (MMap f (v2 ': vs)) ~ Elements (VMap f v1)
+         ) => MMapC f (v1 ': v2 ': vs) a where
+  mMap f m = vMap f (headRow m) |: mMap f (tailRows m)
+
+
+-- Mapping to each row
+-- -------------------
+
+class ApplyVC f vs a where
+  type ApplyV f vs a :: k
+  applyV :: f -> Vec vs a -> ApplyV f vs a
+
+instance ApplyVC Id vs a where
+  type ApplyV Id vs a = Vec vs a
+  applyV Id = id
+
+data Sum = Sum
+instance Num a => ApplyVC Sum vs a where
+  type ApplyV Sum vs a = Quantity (Homo vs) a
+  applyV Sum = vSum
+
+type family MMapV f (vs::[[Dimension]]) a :: [k] where
+  MMapV f '[v] a = ApplyV f v a
+  MMapV f (v1 ': v2 ': vs) a = ApplyV f v1 a ': MMapV f (v2 ': vs) a
+
+
+
+
+-- Zipping each element
+-- --------------------
+
+type family MZipWith f vs us :: [[Dimension]] where
+  MZipWith f '[v] '[u] = '[VZipWith f v u]
+  MZipWith f (v1 ': v2 ': vs) (u1 ': u2 ': us) =
+    VZipWith f v1 u1 ': MZipWith f (v2 ': vs) (u2 ': us)
+
+class MZipWithC f vs us a where
+  mZipWith :: f -> Mat vs a -> Mat us a -> Mat (MZipWith f vs us) a
+
+instance VZipWithC f v u a => MZipWithC f '[v] '[u] a where
+  mZipWith f m1 m2 = rowMatrix (vZipWith f (headRow m1) (headRow m2))
+
+instance (VZipWithC f v1 u1 a, MZipWithC f (v2 ': vs) (u2 ': us) a
+  , Cols (MZipWith f (v2 ': vs) (u2 ': us)) ~ Elements (VZipWith f v1 u1)
+  ) => MZipWithC f (v1 ': v2 ': vs) (u1 ': u2 ': us) a where
+  mZipWith f m1 m2 = vZipWith f (headRow  m1) (headRow  m2)
+                  |: mZipWith f (tailRows m1) (tailRows m2)
+
+
+-- Mapping out
+-- -----------
 
 class MMapOutC f (vs::[[Dimension]]) a where
   type MMapOut f vs a
@@ -321,6 +388,90 @@ instance TransposeC' '[v] where
   transpose' = colMatrix . headRow  -- Principled!
 instance TransposeC' (v2 ': vs) => TransposeC' (v1 ': v2 ': vs) where
   transpose' m = consCol (headRow m) (transpose (tailRows m))  -- Principled!
+
+
+
+-- Unary (single matrix) operations
+-- ================================
+
+-- Scaling
+-- -------
+
+type ScaleMat d vs a = MMap (UnaryR Mul d a) vs
+
+-- | Scale a matrix by multiplication. Each element of the matrix is
+  -- multiplied by the first argument.
+  --
+  -- >>> scaleMat (2*~gram) (mSing $ 3 *~ meter)
+  -- << 6.0e-3 m kg >>
+  -- >>> scaleMat (2*~gram) (rowMatrix (_4 <:. 3 *~ meter))
+  -- << 8.0e-3 kg, 6.0e-3 m kg >>
+  --
+  -- TODO convert to prop.
+  --
+  -- >>> scaleMat x m23 == mMap (UnaryR Mul x) m23
+  -- True
+scaleMat :: Fractional a => Quantity d a -> Mat vs a -> Mat (ScaleMat d vs a) a
+scaleMat x (ListMat vs) = ListMat (map (map (P.* (x /~ siUnit))) vs)
+
+-- | Principled implementation of 'scaleMat'.
+  --
+  -- >>> scaleMat x m23 == scaleMat' x m23
+  -- True
+scaleMat' :: MMapC (UnaryR Mul d a) vs a => Quantity d a -> Mat vs a -> Mat (ScaleMat d vs a) a
+scaleMat' x = mMap (UnaryR Mul x)
+
+
+-- Elementwise operations
+-- ======================
+
+-- | Elementwise addition of matrices. The matrices must have the
+  -- same size and element types.
+  --
+  -- >>> mElemAdd m23 m23 == scaleMat _2 m23
+  -- True
+mElemAdd :: Num a => Mat vs a -> Mat vs a -> Mat vs a
+mElemAdd (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.+)) vs1 vs2)
+
+-- | Principled implementation of 'mElemAdd'.
+  --
+  -- >>> mElemAdd m23 m23 == mElemAdd' m23 m23
+  -- True
+mElemAdd' :: (Num a, MZipWithC Add vs vs a, MZipWith Add vs vs ~ vs)
+         => Mat vs a -> Mat vs a -> Mat vs a
+mElemAdd' m1 m2 = mZipWith Add m1 m2
+
+-- | Elementwise subraction of matrices. The matrices must have the
+  -- same size and element types.
+  --
+  -- >>> mElemSub m23 m23 == scaleMat _0 m23
+  -- True
+mElemSub :: Num a => Mat vs a -> Mat vs a -> Mat vs a
+mElemSub (ListMat vs1) (ListMat vs2) = ListMat (zipWith (zipWith (P.-)) vs1 vs2)
+
+-- | Principled implementation of 'mElemAdd'.
+  --
+  -- >>> mElemSub m23 m23 == mElemSub' m23 m23
+  -- True
+mElemSub' :: (Num a, MZipWithC Sub vs vs a, MZipWith Sub vs vs ~ vs)
+         => Mat vs a -> Mat vs a -> Mat vs a
+mElemSub' m1 m2 = mZipWith Sub m1 m2
+
+
+-- Matrix/vector multiplication
+-- ============================
+
+type family MatVec vs v where
+  MatVec '[v1] v2 = '[DotProduct v1 v2]
+  MatVec (v1 ': vs) v2 = DotProduct v1 v2 ': MatVec vs v2
+
+matVec :: Num a => Mat vs a -> Vec v a -> Vec (MatVec vs v) a
+matVec (ListMat vs) (ListVec v) = ListVec (map (P.sum . zipWith (P.*) v) vs)
+
+type VecMat v vs = MatVec (Transpose vs) v
+
+vecMat :: Num a => Vec v a -> Mat vs a -> Vec (VecMat v vs) a
+vecMat v m = matVec (transpose m) v
 
 
 -- Show
