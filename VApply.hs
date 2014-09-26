@@ -1,8 +1,10 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -34,6 +36,8 @@ import qualified Prelude as P
 -- Unary operations
 -- ----------------
 
+--type VUnaryQC f ds a = ApplyC f (Vec ds a)
+--type VUnaryQ  f ds a = Apply  f (Vec ds a)
 class VUnaryQC f ds a where
   type VUnaryQ f ds :: Dimension
   -- | Apply a function from a vector to a quantity.
@@ -168,23 +172,13 @@ instance VBinaryVC f ds1 ds2 a => VUnaryVC (VUnaryR f ds2 a) ds1 a where
 
 
 
+
 -- Vector to anything
 -- ==================
 
-class VApplyC f ds a where
-  type VApply f ds a :: k  -- Has to be * for vApply to make sense?
-  -- | Apply a function with arbitrary return type to a vector.
-    --
-    -- >>> vApply Id v == v
-    -- True
-    -- >>> vApply Sum vh1 == vSum vh1
-    -- True
-  vApply :: f -> Vec ds a -> VApply f ds a
+type VApplyC f ds a = ApplyC f (Vec ds a)
+type VApply  f ds a = Apply  f (Vec ds a)
 
-instance VApplyC Id ds a where
-  type VApply Id ds a = Vec ds a
-  vApply Id = id
-
-instance Num a => VApplyC Sum ds a where
-  type VApply Sum ds a = Quantity (Homo ds) a
-  vApply Sum = vSum
+instance Num a => ApplyC Sum (Vec ds a) where
+  type Apply Sum (Vec ds a) = Quantity (Homo ds) a
+  apply Sum = vSum

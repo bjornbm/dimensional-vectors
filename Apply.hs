@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -144,11 +145,15 @@ instance BinaryC f d1 d2 a => UnaryC (UnaryR f d2 a) d1 a where
 -- Operations from quantities to other types
 -- =========================================
 
-class ApplyC f d a where
-  type Apply f d a
-  -- | Apply an operation from a quantity to an arbitrary type.
-  apply :: f -> Quantity d a -> Apply f d a
+-- ApplyC
+class ApplyC f a where
+  type Apply f a
+  -- | Apply an operation from one type to another.
+  apply :: f -> a -> Apply f a
 
+instance ApplyC Id a where
+  type Apply Id a = a
+  apply Id = id
 
 -- | Wrap an operation implementing 'UnaryC' with so it can be used
   -- with 'apply'.
@@ -165,15 +170,9 @@ class ApplyC f d a where
   -- True
 data Un f = Un f
 
-instance UnaryC f d a => ApplyC (Un f) d a where
-  type Apply (Un f) d a = Quantity (Unary f d) a
+instance UnaryC f d a => ApplyC (Un f) (Quantity d a) where
+  type Apply (Un f) (Quantity d a) = Quantity (Unary f d) a
   apply (Un f) = unary f
-
-
--- | For convenience to avoid the 'Un' wrapper for 'Id'.
-instance ApplyC Id d a where
-  type Apply Id d a = Quantity d a
-  apply Id = id
 
 
 -- | The show operation.
@@ -184,8 +183,8 @@ instance ApplyC Id d a where
   -- "4.2e-2 kg"
 data Show' = Show
 
-instance Show (Quantity d a) => ApplyC Show' d a where
-  type Apply Show' d a = String
+instance Show a => ApplyC Show' a where
+  type Apply Show' a = String
   apply Show = show
 
 
@@ -195,6 +194,16 @@ instance Show (Quantity d a) => ApplyC Show' d a where
   -- True
   -- >>> apply f x == x * y
   -- True
-instance ApplyC (Quantity d a -> b) d a where
-  type Apply (Quantity d a -> b) d a = b
+instance ApplyC (a -> b) a where
+  type Apply (a -> b) a = b
   apply f = f
+
+
+-- Type synonyms for applying to quantities.
+type QApplyC f d a = ApplyC f (Quantity d a)
+type QApply  f d a = Apply f (Quantity d a)
+
+
+instance Num a => ApplyC Neg (Quantity d a) where
+  type Apply Neg (Quantity d a) = Quantity d a
+  apply Neg = negate

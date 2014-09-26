@@ -328,12 +328,12 @@ class VIterateC f (ds::[Dimension]) a where
     -- 6.0 m kg
   vIterate :: Num a => f -> Vec ds a -> VIterate f ds a
 
-instance (ApplyC f d a) => VIterateC f '[d] a where
-  type VIterate f '[d] a = Apply f d a
+instance (QApplyC f d a) => VIterateC f '[d] a where
+  type VIterate f '[d] a = QApply f d a
   vIterate f = apply f . vHead
 
-instance (ApplyC f d1 a, VIterateC (Apply f d1 a) (d2 ': ds) a) => VIterateC f (d1 ': d2 ': ds) a where
-  type VIterate f (d1 ': d2 ': ds) a = VIterate (Apply f d1 a) (d2 ': ds) a
+instance (QApplyC f d1 a, VIterateC (QApply f d1 a) (d2 ': ds) a) => VIterateC f (d1 ': d2 ': ds) a where
+  type VIterate f (d1 ': d2 ': ds) a = VIterate (QApply f d1 a) (d2 ': ds) a
   vIterate f v = vIterate (apply f (vHead v)) (vTail v)
 
 
@@ -352,15 +352,15 @@ class VMapOutC f (ds::[Dimension]) a where
     -- ["2.0e-3 kg","3.0","32.3 m"]
   vMapOut :: f -> Vec ds a -> [VMapOut f ds a]
 
-instance (ApplyC f d a, Num a) => VMapOutC f '[d] a where
-  type VMapOut f '[d] a = Apply f d a
+instance (QApplyC f d a, Num a) => VMapOutC f '[d] a where
+  type VMapOut f '[d] a = QApply f d a
   vMapOut f v = [apply f $ vHead v]
 
-instance ( ApplyC f d1 a, VMapOutC f (d2 ': ds) a, Num a
-         , Apply f d1 a ~ VMapOut f (d2 ': ds) a)
+instance ( QApplyC f d1 a, VMapOutC f (d2 ': ds) a, Num a
+         , QApply f d1 a ~ VMapOut f (d2 ': ds) a)
         => VMapOutC f (d1 ': d2 ': ds) a
   where
-    type VMapOut f (d1 ': d2 ': ds) a = VMapOut f (d2 ': ds) a -- :Apply f d a
+    type VMapOut f (d1 ': d2 ': ds) a = VMapOut f (d2 ': ds) a -- :QApply f d a
     vMapOut f v = apply f (vHead v) : vMapOut f (vTail v)
 
 
