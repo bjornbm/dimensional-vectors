@@ -368,22 +368,34 @@ mapColV f = transpose . mapRowV f . transpose
 -- Zipping each element
 -- --------------------
 
-type family MZipWith f vs us :: [[Dimension]] where
-  MZipWith f '[v] '[u] = '[VZipWith f v u]
-  MZipWith f (v1 ': v2 ': vs) (u1 ': u2 ': us) =
-    VZipWith f v1 u1 ': MZipWith f (v2 ': vs) (u2 ': us)
+type MZipWithC f us vs a = ZipRowsWithC (Zip f) us vs a
+type MZipWith  f us vs   = ZipRowsWith  (Zip f) us vs
 
-class MZipWithC f vs us a where
-  mZipWith :: f -> Mat vs a -> Mat us a -> Mat (MZipWith f vs us) a
+-- | Zip each element of the matrix.
+mZipWith :: MZipWithC f vs us a
+          => f -> Mat vs a -> Mat us a -> Mat (MZipWith f vs us) a
+mZipWith f m1 m2 = zipRowsWith (Zip f) m1 m2
 
-instance VZipWithC f v u a => MZipWithC f '[v] '[u] a where
-  mZipWith f m1 m2 = rowMatrix (vZipWith f (headRow m1) (headRow m2))
 
-instance (VZipWithC f v1 u1 a, MZipWithC f (v2 ': vs) (u2 ': us) a
-  , Cols (MZipWith f (v2 ': vs) (u2 ': us)) ~ Elements (VZipWith f v1 u1)
-  ) => MZipWithC f (v1 ': v2 ': vs) (u1 ': u2 ': us) a where
-  mZipWith f m1 m2 = vZipWith f (headRow  m1) (headRow  m2)
-                  |: mZipWith f (tailRows m1) (tailRows m2)
+-- Zipping rows to rows
+-- -----------------------
+
+type family ZipRowsWith f vs us :: [[Dimension]] where
+  ZipRowsWith f '[v] '[u] = '[VBinaryV f v u]
+  ZipRowsWith f (v1 ': v2 ': vs) (u1 ': u2 ': us) =
+    VBinaryV f v1 u1 ': ZipRowsWith f (v2 ': vs) (u2 ': us)
+
+class ZipRowsWithC f vs us a where
+  zipRowsWith :: f -> Mat vs a -> Mat us a -> Mat (ZipRowsWith f vs us) a
+
+instance (VBinaryVC f v u a) => ZipRowsWithC f '[v] '[u] a where
+  zipRowsWith f m1 m2 = rowMatrix (vBinaryV f (headRow m1) (headRow m2))
+
+instance (VBinaryVC f v1 u1 a, ZipRowsWithC f (v2 ': vs) (u2 ': us) a
+  , Cols (ZipRowsWith f (v2 ': vs) (u2 ': us)) ~ Elements (VBinaryV f v1 u1)
+  ) => ZipRowsWithC f (v1 ': v2 ': vs) (u1 ': u2 ': us) a where
+  zipRowsWith f m1 m2 = vBinaryV f (headRow  m1) (headRow  m2)
+                  |: zipRowsWith f (tailRows m1) (tailRows m2)
 
 
 -- Mapping out

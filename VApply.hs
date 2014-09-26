@@ -36,8 +36,6 @@ import qualified Prelude as P
 -- Unary operations
 -- ----------------
 
---type VUnaryQC f ds a = ApplyC f (Vec ds a)
---type VUnaryQ  f ds a = Apply  f (Vec ds a)
 class VUnaryQC f ds a where
   type VUnaryQ f ds :: Dimension
   -- | Apply a function from a vector to a quantity.
@@ -130,6 +128,14 @@ instance VBinaryVC Const v1 v2 a where
   type VBinaryV Const v1 v2 = v1
   vBinaryV Const = const
 
+-- | Zip two vectors with an element-wise function.
+  --
+  -- >>> vBinaryV (Zip Mul) v vc3 == vZipWith Mul v vc3
+  -- True
+data Zip f = Zip f
+instance VZipWithC f vs us a => VBinaryVC (Zip f) vs us a where
+  type VBinaryV (Zip f) vs us = VZipWith f vs us
+  vBinaryV (Zip f) v1 v2 = vZipWith f v1 v2
 
 
 -- Binary to unary conversion
