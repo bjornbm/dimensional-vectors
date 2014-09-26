@@ -8,6 +8,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -16,6 +17,7 @@
 module Matrix where
 
 import Data.List (intercalate)
+import Data.Proxy
 import GHC.TypeLits hiding (type (*))
 import Numeric.Units.Dimensional.DK.Prelude
 import Apply
@@ -83,7 +85,7 @@ type Cols (vs::[[Dimension]]) = VLength (HeadRow vs)
 
 type family RectangularC vs  where
   RectangularC '[v]      = v ~ v
-  RectangularC (v ': vs) = (RectangularC vs, VLength (HeadRow vs) ~ Cols (TailRows vs))
+  RectangularC (v ': vs) = (RectangularC vs, VLength v ~ Cols vs)
 
 type SquareC vs = (RectangularC vs, Rows vs ~ Cols vs)
 
@@ -669,6 +671,39 @@ type DyadicProduct  ds1 ds2 a = MatMat  (Column ds1) (Row ds2) a
 dyadicProduct :: DyadicProductC ds1 ds2 a
               => Vec ds1 a -> Vec ds2 a -> Mat (DyadicProduct ds1 ds2 a) a
 dyadicProduct v1 v2 = matMat (colMatrix v1) (rowMatrix v2)
+
+
+
+-- Homogeneous matrices
+-- ====================
+
+type MHomo (vs::[[Dimension]]) = Homo vs
+
+
+-- Identity matrix
+-- ===============
+
+-- | The identity matrix. The size of the matrix is determined by its
+  -- type. The physical dimensions of the elements of the identity
+  -- matrix necessarily depend on the matrix or vector it will operate on
+  -- (by multiplication). Not all matrices have a valid identity matrix,
+  -- but when an identity matrix exists the elements on the diagonal are
+  -- always dimensionless. Unfortunately this function does not assist
+  -- in determining the type of the identity matrix, but when it is
+  -- involved in addition or subtraction it can be inferred.
+  --
+  -- >>> mElemSub identity m22
+  -- << -1.0 m, -3.0 kg >,
+  --  < -1.0, 0.0 >>
+identity :: forall vs n a. (SquareC vs, KnownNat (Elements vs), Num a) => Mat vs a
+identity = ListMat (eye (natVal (Proxy :: Proxy (Elements vs))))
+  where
+    -- eye n = [ [ if x == y then 1 else 0 | x <- [1..n] ] | y <- [1..n] ]
+    eye n = do
+      y <- [1..n]
+      return $ do
+        x <- [1..n]
+        return (if x == y then 1 else 0)
 
 
 
