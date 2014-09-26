@@ -272,29 +272,25 @@ tailCols' = transpose' . tailRows . transpose'
 
 
 
+-- ======================
 -- Higher order functions
 -- ======================
+
+
+-- Mapping
+-- =======
 
 -- Mapping to each element
 -- -----------------------
 
-type family MMap f (vs::[[Dimension]]) :: [[Dimension]] where
-  MMap f '[v] = '[VMap f v]
-  MMap f (v1 ': v2 ': vs) = VMap f v1 ': MMap f (v2 ': vs)
+type MMapC f vs a = MapRowVC (Map f) vs a
+type MMap  f vs   = MapRowV  (Map f) vs
 
-class MMapC f (vs::[[Dimension]]) a where
-  mMap :: f -> Mat vs a -> Mat (MMap f vs) a
-
-instance VMapC f v a => MMapC f '[v] a where
-  mMap f = rowMatrix . vMap f . headRow
-
-instance ( VMapC f v1 a, MMapC f (v2 ': vs) a
-         , Cols (MMap f (v2 ': vs)) ~ Elements (VMap f v1)
-         ) => MMapC f (v1 ': v2 ': vs) a where
-  mMap f m = vMap f (headRow m) |: mMap f (tailRows m)
+mMap :: MMapC f vs a => f -> Mat vs a -> Mat (MMap f vs) a
+mMap f m = mapRowV (Map f) m
 
 
--- Mapping each row to a quantity
+-- Mapping each row to an element
 -- ------------------------------
 
 -- | Mapping a function from a vector to a quantity over each row of
@@ -319,6 +315,9 @@ instance (Fractional a, VUnaryQC f v1 a, MapRowQC f (v2 ': vs) a)
   mapRowQ f m = vUnaryQ f (headRow m) <: mapRowQ f (tailRows m)
 
 
+-- Mapping each column to an element
+-- ---------------------------------
+
 -- | Map a function from a vector to a quantity over each column of
   -- a matrix.
   --
@@ -329,8 +328,8 @@ mapColQ :: MapRowQC f (Transpose vs) a =>
 mapColQ f = mapRowQ f . transpose
 
 
--- Mapping each row to a vector
--- ----------------------------
+-- Mapping each row to a row
+-- -------------------------
 
 -- | Mapping a function from a vector to a vector over each row of
   -- a matrix.
@@ -355,6 +354,9 @@ instance ( VUnaryVC f v1 a, MapRowVC f (v2 ': vs) a
   mapRowV f m = vUnaryV f (headRow m) |: mapRowV f (tailRows m)
 
 
+-- Mapping each column to a column
+-- -------------------------------
+
 -- | Map a function from a vector to a vector over each column of
   -- a matrix.
   --
@@ -365,17 +367,26 @@ mapColV :: MapRowVC f (Transpose vs) a =>
 mapColV f = transpose . mapRowV f . transpose
 
 
--- Zipping each element
--- --------------------
+-- Mapping out
+-- -----------
 
-type MZipWithC f us vs a = ZipRowsWithVC (Zip f) us vs a
-type MZipWith  f us vs   = ZipRowsWithV  (Zip f) us vs
+class MMapOutC f (vs::[[Dimension]]) a where
+  type MMapOut f vs a
+  mMapOut :: f -> Mat vs a -> [[MMapOut f vs a]]  -- Or per vector?
 
--- | Zip each element of the matrix.
-mZipWith :: MZipWithC f vs us a
-          => f -> Mat vs a -> Mat us a -> Mat (MZipWith f vs us) a
-mZipWith f m1 m2 = zipRowsWithV (Zip f) m1 m2
+instance VMapOutC f ds a => MMapOutC f '[ds] a where
+  type MMapOut f '[ds] a = VMapOut f ds a
+  mMapOut f m = [vMapOut f (headRow m)]
 
+instance (MMapOutC f (v2 ': vs) a, VMapOutC f v1 a, MMapOut f (v2 ': vs) a ~ VMapOut f v1 a)
+  => MMapOutC f (v1 ': v2 ': vs) a where
+  type MMapOut f (v1 ': v2 ': vs) a = VMapOut f v1 a
+  mMapOut f m = vMapOut f (headRow m) : mMapOut f (tailRows m)
+
+
+
+-- Zipping
+-- =======
 
 -- Zipping rows to rows
 -- --------------------
@@ -397,6 +408,7 @@ instance (VBinaryVC f v1 u1 a, ZipRowsWithVC f (v2 ': vs) (u2 ': us) a
   zipRowsWithV f m1 m2 = vBinaryV f (headRow  m1) (headRow  m2)
                   |: zipRowsWithV f (tailRows m1) (tailRows m2)
 
+
 -- Zipping columns to columns
 -- --------------------------
 
@@ -406,6 +418,7 @@ type ZipColsWithV  f vs us   = Transpose (ZipRowsWithV  f (Transpose vs) (Transp
 zipColsWithV :: ZipColsWithVC f vs us a
              => f -> Mat vs a -> Mat us a -> Mat (ZipColsWithV f vs us) a
 zipColsWithV f m1 m2 = transpose (zipRowsWithV f (transpose m1) (transpose m2))
+
 
 -- Zipping rows to elements
 -- ------------------------
@@ -429,7 +442,7 @@ instance ( Fractional a, VBinaryQC f v1 u1 a
 
 
 -- Zipping columns to elements
--- ------------------------
+-- ---------------------------
 
 type ZipColsWithQC f vs us a = ZipRowsWithQC f (Transpose vs) (Transpose us) a
 type ZipColsWithQ  f vs us   = ZipRowsWithQ  f (Transpose vs) (Transpose us)
@@ -439,21 +452,17 @@ zipColsWithQ :: ZipColsWithQC f vs us a
 zipColsWithQ f m1 m2 = zipRowsWithQ f (transpose m1) (transpose m2)
 
 
--- Mapping out
--- -----------
+-- Zipping each element
+-- --------------------
 
-class MMapOutC f (vs::[[Dimension]]) a where
-  type MMapOut f vs a
-  mMapOut :: f -> Mat vs a -> [[MMapOut f vs a]]  -- Or per vector?
+type MZipWithC f us vs a = ZipRowsWithVC (Zip f) us vs a
+type MZipWith  f us vs   = ZipRowsWithV  (Zip f) us vs
 
-instance VMapOutC f ds a => MMapOutC f '[ds] a where
-  type MMapOut f '[ds] a = VMapOut f ds a
-  mMapOut f m = [vMapOut f (headRow m)]
+-- | Zip each element of the matrix.
+mZipWith :: MZipWithC f vs us a
+          => f -> Mat vs a -> Mat us a -> Mat (MZipWith f vs us) a
+mZipWith f m1 m2 = zipRowsWithV (Zip f) m1 m2
 
-instance (MMapOutC f (v2 ': vs) a, VMapOutC f v1 a, MMapOut f (v2 ': vs) a ~ VMapOut f v1 a)
-  => MMapOutC f (v1 ': v2 ': vs) a where
-  type MMapOut f (v1 ': v2 ': vs) a = VMapOut f v1 a
-  mMapOut f m = vMapOut f (headRow m) : mMapOut f (tailRows m)
 
 
 -- Transpose

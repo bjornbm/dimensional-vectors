@@ -102,6 +102,15 @@ instance VUnaryVC (Vec ds1 a -> Vec ds2 a) ds1 a where
   type VUnaryV (Vec ds1 a -> Vec ds2 a) ds1 = ds2
   vUnaryV f = f
 
+-- | Map a function to each element of a vector.
+  --
+  -- >>> vBinaryV (Zip Mul) v vc3 == vZipWith Mul v vc3
+  -- True
+data Map f = Map f
+instance VMapC f ds a => VUnaryVC (Map f) ds a where
+  type VUnaryV (Map f) ds = VMap f ds
+  vUnaryV (Map f) v = vMap f v
+
 
 -- Binary operations
 -- -----------------
@@ -133,8 +142,8 @@ instance VBinaryVC Const v1 v2 a where
   -- >>> vBinaryV (Zip Mul) v vc3 == vZipWith Mul v vc3
   -- True
 data Zip f = Zip f
-instance VZipWithC f vs us a => VBinaryVC (Zip f) vs us a where
-  type VBinaryV (Zip f) vs us = VZipWith f vs us
+instance VZipWithC f ds1 ds2 a => VBinaryVC (Zip f) ds1 ds2 a where
+  type VBinaryV (Zip f) ds1 ds2 = VZipWith f ds1 ds2
   vBinaryV (Zip f) v1 v2 = vZipWith f v1 v2
 
 
