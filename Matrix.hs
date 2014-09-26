@@ -662,6 +662,15 @@ matMat :: MatMatC vs us a => Mat vs a -> Mat us a -> Mat (MatMat vs us a) a
 matMat m1 m2 = mapColV (MatVecF m1) m2
 
 
+type DyadicProductC ds1 ds2 a = MatMatC (Column ds1) (Row ds2) a
+type DyadicProduct  ds1 ds2 a = MatMat  (Column ds1) (Row ds2) a
+
+-- | The dyadic product.
+dyadicProduct :: DyadicProductC ds1 ds2 a
+              => Vec ds1 a -> Vec ds2 a -> Mat (DyadicProduct ds1 ds2 a) a
+dyadicProduct v1 v2 = matMat (colMatrix v1) (rowMatrix v2)
+
+
 
 -- Show
 -- ====
