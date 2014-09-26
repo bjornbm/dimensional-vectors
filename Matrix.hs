@@ -280,16 +280,6 @@ tailCols' = transpose' . tailRows . transpose'
 -- Mapping
 -- =======
 
--- Mapping to each element
--- -----------------------
-
-type MMapC f vs a = MapRowVC (Map f) vs a
-type MMap  f vs   = MapRowV  (Map f) vs
-
-mMap :: MMapC f vs a => f -> Mat vs a -> Mat (MMap f vs) a
-mMap f m = mapRowV (Map f) m
-
-
 -- Mapping each row to an element
 -- ------------------------------
 
@@ -318,13 +308,15 @@ instance (Fractional a, VUnaryQC f v1 a, MapRowQC f (v2 ': vs) a)
 -- Mapping each column to an element
 -- ---------------------------------
 
+type MapColQC f vs a = MapRowQC f (Transpose vs) a
+type MapColQ  f vs   = MapRowQ  f (Transpose vs)
+
 -- | Map a function from a vector to a quantity over each column of
   -- a matrix.
   --
   -- >>> mapColQ Sum (consCol vh1 (colMatrix vh2)) == vSum vh1 <:. vSum vh2
   -- True
-mapColQ :: MapRowQC f (Transpose vs) a =>
-     f -> Mat vs a -> Vec (MapRowQ f (Transpose vs)) a
+mapColQ :: MapColQC f vs a => f -> Mat vs a -> Vec (MapColQ f vs) a
 mapColQ f = mapRowQ f . transpose
 
 
@@ -357,14 +349,26 @@ instance ( VUnaryVC f v1 a, MapRowVC f (v2 ': vs) a
 -- Mapping each column to a column
 -- -------------------------------
 
+type MapColVC f vs a = MapRowVC f (Transpose vs) a
+type MapColV  f vs   = Transpose (MapRowV  f (Transpose vs))
+
 -- | Map a function from a vector to a vector over each column of
   -- a matrix.
   --
   -- >>> mapColV Id m23 == m23
   -- True
-mapColV :: MapRowVC f (Transpose vs) a =>
-     f -> Mat vs a -> Mat (Transpose (MapRowV f (Transpose vs))) a
+mapColV :: MapColVC f vs a => f -> Mat vs a -> Mat (MapColV f vs) a
 mapColV f = transpose . mapRowV f . transpose
+
+
+-- Mapping to each element
+-- -----------------------
+
+type MMapC f vs a = MapRowVC (Map f) vs a
+type MMap  f vs   = MapRowV  (Map f) vs
+
+mMap :: MMapC f vs a => f -> Mat vs a -> Mat (MMap f vs) a
+mMap f m = mapRowV (Map f) m
 
 
 -- Mapping out
@@ -607,7 +611,7 @@ type family MatVec vs v where
   MatVec '[v1] v2 = '[DotProduct v1 v2]
   MatVec (v1 ': vs) v2 = DotProduct v1 v2 ': MatVec vs v2
 
--- |
+-- | Multiply a matrix on the right with a (ket) vector on the left.
 matVec :: Num a => Mat vs a -> Vec v a -> Vec (MatVec vs v) a
 matVec (ListMat vs) (ListVec v) = ListVec (map (P.sum . zipWith (P.*) v) vs)
 
@@ -623,9 +627,40 @@ type MatVec' vs v a = MapRowQ (VUnaryR Dot v a) vs
 
 type VecMat v vs = MatVec (Transpose vs) v
 
--- |
+-- | Multiply a (bra) vector on the left with a matrix on the right.
+-- This is equivalent to multiplying a (ket) vector to the right of
+-- the transposed matrix.
 vecMat :: Num a => Vec v a -> Mat vs a -> Vec (VecMat v vs) a
 vecMat v m = matVec (transpose m) v
+
+
+
+-- Matrix/matric multiplication
+-- ============================
+
+-- |
+  -- >>> vUnaryV (MatVecF (rowMatrix v)) vd2 == matVec (rowMatrix v) vd2
+  -- True
+data MatVecF m = MatVecF m
+
+instance Num a => VUnaryVC (MatVecF (Mat vs a)) v a where
+  type VUnaryV (MatVecF (Mat vs a)) v = MatVec vs v
+  vUnaryV (MatVecF m) v = matVec m v
+
+type MatMatC vs us a = MapColVC (MatVecF (Mat vs a)) us a
+type MatMat  vs us a = MapColV  (MatVecF (Mat vs a)) us
+
+-- | Multiply two matrices.
+  --
+  -- >>> matMat (rowMatrix v) (colMatrix vd2)
+  -- << 18.0 m kg >>
+  -- >>> matMat (colMatrix v) (rowMatrix vd2)
+  -- << 6.0 m kg, 4.0 m^2, 12.0 m^2 kg >,
+  --  < 9.0 kg^2, 6.0 m kg, 18.0 m kg^2 >,
+  --  < 3.0 kg, 2.0 m, 6.0 m kg >>
+matMat :: MatMatC vs us a => Mat vs a -> Mat us a -> Mat (MatMat vs us a) a
+matMat m1 m2 = mapColV (MatVecF m1) m2
+
 
 
 -- Show
