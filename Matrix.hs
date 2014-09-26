@@ -368,34 +368,75 @@ mapColV f = transpose . mapRowV f . transpose
 -- Zipping each element
 -- --------------------
 
-type MZipWithC f us vs a = ZipRowsWithC (Zip f) us vs a
-type MZipWith  f us vs   = ZipRowsWith  (Zip f) us vs
+type MZipWithC f us vs a = ZipRowsWithVC (Zip f) us vs a
+type MZipWith  f us vs   = ZipRowsWithV  (Zip f) us vs
 
 -- | Zip each element of the matrix.
 mZipWith :: MZipWithC f vs us a
           => f -> Mat vs a -> Mat us a -> Mat (MZipWith f vs us) a
-mZipWith f m1 m2 = zipRowsWith (Zip f) m1 m2
+mZipWith f m1 m2 = zipRowsWithV (Zip f) m1 m2
 
 
 -- Zipping rows to rows
--- -----------------------
+-- --------------------
 
-type family ZipRowsWith f vs us :: [[Dimension]] where
-  ZipRowsWith f '[v] '[u] = '[VBinaryV f v u]
-  ZipRowsWith f (v1 ': v2 ': vs) (u1 ': u2 ': us) =
-    VBinaryV f v1 u1 ': ZipRowsWith f (v2 ': vs) (u2 ': us)
+type family ZipRowsWithV f vs us :: [[Dimension]] where
+  ZipRowsWithV f '[v] '[u] = '[VBinaryV f v u]
+  ZipRowsWithV f (v1 ': v2 ': vs) (u1 ': u2 ': us) =
+    VBinaryV f v1 u1 ': ZipRowsWithV f (v2 ': vs) (u2 ': us)
 
-class ZipRowsWithC f vs us a where
-  zipRowsWith :: f -> Mat vs a -> Mat us a -> Mat (ZipRowsWith f vs us) a
+class ZipRowsWithVC f vs us a where
+  zipRowsWithV :: f -> Mat vs a -> Mat us a -> Mat (ZipRowsWithV f vs us) a
 
-instance (VBinaryVC f v u a) => ZipRowsWithC f '[v] '[u] a where
-  zipRowsWith f m1 m2 = rowMatrix (vBinaryV f (headRow m1) (headRow m2))
+instance (VBinaryVC f v u a) => ZipRowsWithVC f '[v] '[u] a where
+  zipRowsWithV f m1 m2 = rowMatrix (vBinaryV f (headRow m1) (headRow m2))
 
-instance (VBinaryVC f v1 u1 a, ZipRowsWithC f (v2 ': vs) (u2 ': us) a
-  , Cols (ZipRowsWith f (v2 ': vs) (u2 ': us)) ~ Elements (VBinaryV f v1 u1)
-  ) => ZipRowsWithC f (v1 ': v2 ': vs) (u1 ': u2 ': us) a where
-  zipRowsWith f m1 m2 = vBinaryV f (headRow  m1) (headRow  m2)
-                  |: zipRowsWith f (tailRows m1) (tailRows m2)
+instance (VBinaryVC f v1 u1 a, ZipRowsWithVC f (v2 ': vs) (u2 ': us) a
+  , Cols (ZipRowsWithV f (v2 ': vs) (u2 ': us)) ~ Elements (VBinaryV f v1 u1)
+  ) => ZipRowsWithVC f (v1 ': v2 ': vs) (u1 ': u2 ': us) a where
+  zipRowsWithV f m1 m2 = vBinaryV f (headRow  m1) (headRow  m2)
+                  |: zipRowsWithV f (tailRows m1) (tailRows m2)
+
+-- Zipping columns to columns
+-- --------------------------
+
+type ZipColsWithVC f vs us a = ZipRowsWithVC f (Transpose vs) (Transpose us) a
+type ZipColsWithV  f vs us   = Transpose (ZipRowsWithV  f (Transpose vs) (Transpose us))
+
+zipColsWithV :: ZipColsWithVC f vs us a
+             => f -> Mat vs a -> Mat us a -> Mat (ZipColsWithV f vs us) a
+zipColsWithV f m1 m2 = transpose (zipRowsWithV f (transpose m1) (transpose m2))
+
+-- Zipping rows to elements
+-- ------------------------
+
+type family ZipRowsWithQ f vs us :: [Dimension] where
+  ZipRowsWithQ f '[v] '[u] = '[VBinaryQ f v u]
+  ZipRowsWithQ f (v1 ': v2 ': vs) (u1 ': u2 ': us) =
+    VBinaryQ f v1 u1 ': ZipRowsWithQ f (v2 ': vs) (u2 ': us)
+
+class ZipRowsWithQC f vs us a where
+  zipRowsWithQ :: f -> Mat vs a -> Mat us a -> Vec (ZipRowsWithQ f vs us) a
+
+instance (Fractional a, VBinaryQC f v u a) => ZipRowsWithQC f '[v] '[u] a where
+  zipRowsWithQ f m1 m2 = vSing (vBinaryQ f (headRow m1) (headRow m2))
+
+instance ( Fractional a, VBinaryQC f v1 u1 a
+  , ZipRowsWithQC f (v2 ': vs) (u2 ': us) a
+  ) => ZipRowsWithQC f (v1 ': v2 ': vs) (u1 ': u2 ': us) a where
+  zipRowsWithQ f m1 m2 = vBinaryQ f (headRow  m1) (headRow  m2)
+                  <: zipRowsWithQ f (tailRows m1) (tailRows m2)
+
+
+-- Zipping columns to elements
+-- ------------------------
+
+type ZipColsWithQC f vs us a = ZipRowsWithQC f (Transpose vs) (Transpose us) a
+type ZipColsWithQ  f vs us   = ZipRowsWithQ  f (Transpose vs) (Transpose us)
+
+zipColsWithQ :: ZipColsWithQC f vs us a
+             => f -> Mat vs a -> Mat us a -> Vec (ZipColsWithQ f vs us) a
+zipColsWithQ f m1 m2 = zipRowsWithQ f (transpose m1) (transpose m2)
 
 
 -- Mapping out
