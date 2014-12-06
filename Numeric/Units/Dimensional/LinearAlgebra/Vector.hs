@@ -322,7 +322,10 @@ vNorm :: (DotProduct ds ds d, Root d Pos2 d', RealFloat a)
 vNorm v = sqrt (v `dotProduct` v)
 
 -- | Normalize a vector. The vector must be homogeneous.
-
 vNormalize :: ( DotProduct ds ds d, Root d Pos2 d', Div DOne d' d''
               , HMap (MulD, d'') ds ds', RealFloat a ) => Vec ds a -> Vec ds' a
 vNormalize v = (_1 / vNorm v) `scaleVec` v
+
+-- | Negate a vector.
+vNegate :: Num a => Vec ds a -> Vec ds a
+vNegate = vMap P.negate
